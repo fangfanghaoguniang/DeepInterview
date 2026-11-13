@@ -1,4 +1,6 @@
 import { Container } from "@/components/ui/container";
+import { t } from "@/lib/i18n";
+import { getServerMessages } from "@/lib/i18n/server";
 
 const COMPANIES = [
   "Google",
@@ -9,12 +11,13 @@ const COMPANIES = [
   "Datadog",
 ];
 
-export function LogoCloud() {
+export async function LogoCloud() {
+  const m = await getServerMessages();
   return (
     <div className="border-b border-line py-[34px]">
       <Container>
         <p className="mb-[18px] text-center font-mono text-[12.5px] uppercase tracking-[0.06em] text-faint">
-          Prepare for interviews at companies like
+          {t(m, "landing.logoLine")}
         </p>
         <div className="flex flex-wrap items-center justify-center gap-x-[46px] gap-y-4">
           {COMPANIES.map((name) => (

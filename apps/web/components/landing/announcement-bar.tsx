@@ -1,7 +1,10 @@
 import { Container } from "@/components/ui/container";
 import { GITHUB_URL } from "@/lib/site";
+import { t } from "@/lib/i18n";
+import { getServerMessages } from "@/lib/i18n/server";
 
-export function AnnouncementBar() {
+export async function AnnouncementBar() {
+  const m = await getServerMessages();
   return (
     <div className="border-b border-line bg-panel">
       <Container className="flex h-[38px] items-center justify-center gap-2.5 text-[13px] text-muted">
@@ -10,7 +13,7 @@ export function AnnouncementBar() {
           className="inline-block h-[5px] w-[5px] rounded-full bg-accent"
         />
         <b className="font-semibold text-ink">
-          Open source &amp; self-hostable
+          {t(m, "landing.announceTag")}
         </b>
         <a
           href={GITHUB_URL}
@@ -18,7 +21,7 @@ export function AnnouncementBar() {
           rel="noreferrer"
           className="text-muted hover:text-ink"
         >
-          ★ Star us on GitHub →
+          {t(m, "landing.announceStar")}
         </a>
       </Container>
     </div>

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
+import { t } from "@/lib/i18n";
+import { useMessages } from "@/lib/i18n/client";
 
 interface MobileMenuProps {
   links: { href: string; label: string }[];
@@ -10,12 +12,13 @@ interface MobileMenuProps {
 
 export function MobileMenu({ links }: MobileMenuProps) {
   const [open, setOpen] = useState(false);
+  const messages = useMessages();
 
   return (
     <div className="min-[861px]:hidden">
       <button
         type="button"
-        aria-label={open ? "Close menu" : "Open menu"}
+        aria-label={open ? t(messages, "landing.menuClose") : t(messages, "landing.menuOpen")}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
         className="grid h-9 w-9 place-items-center rounded-md border border-line text-ink-soft hover:text-ink"

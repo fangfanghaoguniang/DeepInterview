@@ -2,6 +2,8 @@ import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 import { type ScoreCard, type InterviewContext } from "@deepinterview/shared";
 import { serverEnv } from "@/lib/env";
+import { t } from "@/lib/i18n";
+import { getServerLocale, getServerMessages } from "@/lib/i18n/server";
 import { SessionViewSchema } from "@/lib/session";
 import { SAMPLE_SCORECARD, SAMPLE_INTERVIEW } from "@/lib/sample-scorecard";
 import { Eyebrow } from "@/components/ui/eyebrow";
@@ -154,7 +156,10 @@ async function load(id: string): Promise<Loaded> {
 }
 
 /** Build the question-text lookup + ordered transcript turns. */
-function buildTranscript(loaded: Loaded): {
+function buildTranscript(
+  loaded: Loaded,
+  locale: "en" | "zh",
+): {
   questionText: Record<string, string>;
   turns: TranscriptTurn[];
 } {
@@ -166,8 +171,9 @@ function buildTranscript(loaded: Loaded): {
       loaded.context.answers.map((a) => [a.question_id, a.transcript]),
     );
     for (const q of loaded.context.plan.questions) {
-      // Schema guarantees a non-empty `en`; coalesce for noUncheckedIndexedAccess.
-      const text = q.text.en ?? "";
+      // Prefer the UI locale's wording (the planner writes en + the interview
+      // language), fall back to `en` for legacy single-locale plans.
+      const text = q.text[locale] ?? q.text.en ?? "";
       questionText[q.id] = text;
       turns.push({
         question_id: q.id,
@@ -212,6 +218,7 @@ export default async function ReportPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const m = await getServerMessages();
 
   // No auth gate: OSS reads the report through the agent API, which needs no
   // sign-in. (Hosted/multi-tenant deployments add auth as a separate layer.)
@@ -232,19 +239,17 @@ export default async function ReportPage({
             />
             <h1 className="font-serif text-2xl text-ink">
               {preparing
-                ? "Preparing your interview…"
-                : "Scoring your interview…"}
+                ? t(m, "report.preparingTitle")
+                : t(m, "report.scoringTitle")}
             </h1>
             <p className="max-w-sm text-sm leading-relaxed text-muted">
               {preparing
-                ? "Reading your CV and the job description to build your question plan. This page updates automatically."
-                : "Hang tight — we’re analyzing your answers. This page updates automatically the moment your report is ready."}
+                ? t(m, "report.preparingBody")
+                : t(m, "report.scoringBody")}
             </p>
             <ScoringPoll
               stalledMessage={
-                preparing
-                  ? "Prep is taking longer than expected. It runs on your configured LLM provider — check the agent logs for a failing prep stage, then reload."
-                  : "Scoring is taking longer than expected. Check the agent API logs for a failing scoring stage, then reload this page."
+                preparing ? t(m, "report.prepStalled") : t(m, "report.scoringStalled")
               }
             />
           </CardContent>
@@ -263,35 +268,24 @@ export default async function ReportPage({
         <Card className="max-w-md text-center">
           <CardContent className="flex flex-col items-center gap-4 py-10">
             <h1 className="font-serif text-2xl text-ink">
-              This interview hasn’t run yet
+              {t(m, "report.notRunTitle")}
             </h1>
             <p className="max-w-sm text-sm leading-relaxed text-muted">
-              {loaded.role && loaded.company ? (
-                <>
-                  Your {loaded.role} interview at {loaded.company} is prepped
-                  and ready, but no answers were recorded — so there’s nothing
-                  to score.{" "}
-                </>
-              ) : (
-                <>
-                  This interview is prepped and ready, but no answers were
-                  recorded — so there’s nothing to score.{" "}
-                </>
-              )}
-              Join the interview to start it. If you just finished one and are
-              seeing this, the voice worker didn’t save a result — it runs as a
-              separate process, so check that it’s running and that your LiveKit
-              keys are set.
+              {loaded.role && loaded.company
+                ? t(m, "report.notRunBodyWith")
+                    .replace("{role}", loaded.role)
+                    .replace("{company}", loaded.company)
+                : t(m, "report.notRunBody")}
             </p>
             <div className="flex flex-wrap justify-center gap-3">
               <Link
                 href={`/interview/${encodeURIComponent(id)}`}
                 className={buttonClasses()}
               >
-                Join interview
+                {t(m, "report.joinInterview")}
               </Link>
               <Link href="/setup" className={buttonClasses({ variant: "out" })}>
-                Start over
+                {t(m, "report.startOver")}
               </Link>
             </div>
           </CardContent>
@@ -307,29 +301,21 @@ export default async function ReportPage({
         <Card className="max-w-md text-center">
           <CardContent className="flex flex-col items-center gap-4 py-10">
             <h1 className="font-serif text-2xl text-ink">
-              No answers recorded
+              {t(m, "report.emptyTitle")}
             </h1>
             <p className="max-w-sm text-sm leading-relaxed text-muted">
-              {loaded.role && loaded.company ? (
-                <>
-                  This {loaded.role} interview at {loaded.company} ended before
-                  any question was answered, so there’s nothing to score
-                  yet.{" "}
-                </>
-              ) : (
-                <>
-                  This interview ended before any question was answered, so
-                  there’s nothing to score yet.{" "}
-                </>
-              )}
-              Give it another go — answer out loud and we’ll build your report.
+              {loaded.role && loaded.company
+                ? t(m, "report.emptyBodyWith")
+                    .replace("{role}", loaded.role)
+                    .replace("{company}", loaded.company)
+                : t(m, "report.emptyBody")}
             </p>
             <div className="flex flex-wrap justify-center gap-3">
               <Link href="/setup" className={buttonClasses()}>
-                Practice again
+                {t(m, "report.practiceAgain")}
               </Link>
               <Link href="/" className={buttonClasses({ variant: "out" })}>
-                Back home
+                {t(m, "report.backHome")}
               </Link>
             </div>
           </CardContent>
@@ -346,23 +332,20 @@ export default async function ReportPage({
         <Card className="max-w-md text-center">
           <CardContent className="flex flex-col items-center gap-4 py-10">
             <h1 className="font-serif text-2xl text-ink">
-              We couldn’t score this interview
+              {t(m, "report.errorTitle")}
             </h1>
             <p className="max-w-sm text-sm leading-relaxed text-muted">
-              Scoring hit a temporary error, so we’re not showing a report
-              rather than show inaccurate results. Your answers are saved and
-              scoring can be retried — check back here in a few minutes, or
-              start another run.
+              {t(m, "report.errorBody")}
             </p>
             <div className="flex flex-wrap justify-center gap-3">
               <Link
                 href={`/report/${encodeURIComponent(id)}`}
                 className={buttonClasses()}
               >
-                Check again
+                {t(m, "report.checkAgain")}
               </Link>
               <Link href="/setup" className={buttonClasses({ variant: "out" })}>
-                Practice again
+                {t(m, "report.practiceAgain")}
               </Link>
             </div>
           </CardContent>
@@ -373,7 +356,7 @@ export default async function ReportPage({
 
   // ready | sample → the full report.
   const { scorecard } = loaded;
-  const { questionText, turns } = buildTranscript(loaded);
+  const { questionText, turns } = buildTranscript(loaded, await getServerLocale());
 
   return (
     <main className="mx-auto max-w-[920px] px-6 py-12">
@@ -383,12 +366,12 @@ export default async function ReportPage({
           <Eyebrow>DeepInterview</Eyebrow>
         </Link>
         {loaded.state === "sample" && (
-          <Badge variant="outline">Preview (sample data)</Badge>
+          <Badge variant="outline">{t(m, "report.previewBadge")}</Badge>
         )}
       </header>
 
       <div className="mt-6">
-        <h1 className="font-serif text-4xl text-ink">Your interview report</h1>
+        <h1 className="font-serif text-4xl text-ink">{t(m, "report.title")}</h1>
         <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-muted">
           {loaded.role && loaded.company ? (
             <>
@@ -408,9 +391,7 @@ export default async function ReportPage({
             aria-hidden
           />
           <span>
-            Partial report: the detailed narrative was unavailable when this
-            interview was scored. Your scores are preserved — re-run scoring to
-            get the full write-up and model answers.
+            {t(m, "report.partialNotice")}
           </span>
         </div>
       )}
@@ -424,8 +405,8 @@ export default async function ReportPage({
       <section className="mt-4 grid gap-4 lg:grid-cols-5">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Competencies</CardTitle>
-            <CardDescription>Scored 0–5 across the rubric.</CardDescription>
+            <CardTitle>{t(m, "report.competencies")}</CardTitle>
+            <CardDescription>{t(m, "report.competenciesDesc")}</CardDescription>
           </CardHeader>
           <CardContent className="pb-6">
             <CompetencyChart competencies={scorecard.competency_scores} />
@@ -442,10 +423,8 @@ export default async function ReportPage({
         <LanguageReportCard report={scorecard.language_report} />
         <Card>
           <CardHeader>
-            <CardTitle>Next steps</CardTitle>
-            <CardDescription>
-              What to drill before your next run.
-            </CardDescription>
+            <CardTitle>{t(m, "report.nextSteps")}</CardTitle>
+            <CardDescription>{t(m, "report.nextStepsDesc")}</CardDescription>
           </CardHeader>
           <CardContent className="pb-6">
             <ol className="space-y-3">
@@ -484,12 +463,9 @@ export default async function ReportPage({
           <CardContent className="flex flex-col items-start gap-4 py-6 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="font-serif text-xl text-ink">
-                Turn these gaps into a study plan
+                {t(m, "report.ctaTitle")}
               </h2>
-              <p className="mt-1 text-sm text-muted">
-                Your Prep Coach builds focused drills around your weak areas —
-                then you run it back.
-              </p>
+              <p className="mt-1 text-sm text-muted">{t(m, "report.ctaBody")}</p>
             </div>
             <div className="flex shrink-0 flex-wrap gap-3">
               <Link
@@ -502,10 +478,10 @@ export default async function ReportPage({
                 }
                 className={buttonClasses()}
               >
-                Coach me on my weak areas
+                {t(m, "report.ctaCoach")}
               </Link>
               <Link href="/setup" className={buttonClasses({ variant: "out" })}>
-                Practice again
+                {t(m, "report.practiceAgain")}
               </Link>
             </div>
           </CardContent>

@@ -1,10 +1,14 @@
 """Prompt builders for the WP-7 scoring pipeline.
 
-English-first: every system prompt is in English. The post phase is
-latency-tolerant, so prompts here can be richer than the live agent's. Each
-builder returns a ``(system, user)`` tuple whose ``user`` payload is a compact,
-model-readable summary of the relevant interview state (question + rubric +
-candidate answer), keeping each call self-contained.
+Prompt scaffolding is English, but every builder takes a ``language`` and
+instructs the model to write FREE-TEXT output (evidence, comments, strengths,
+weaknesses, next steps, summaries, model answers, notes) in the interview's
+primary language — a Chinese run gets a Chinese report. Default ``"en"`` keeps
+the pre-localization behaviour byte-identical for callers that pass nothing.
+The post phase is latency-tolerant, so prompts here can be richer than the
+live agent's. Each builder returns a ``(system, user)`` tuple whose ``user``
+payload is a compact, model-readable summary of the relevant interview state
+(question + rubric + candidate answer), keeping each call self-contained.
 
 The mock LLM ignores prompt content entirely, so these strings only matter once
 a real provider is wired; the deterministic offline behaviour comes from the
@@ -22,6 +26,23 @@ if TYPE_CHECKING:
         InterviewContext,
         PlannedQuestion,
         RubricItem,
+    )
+
+from ..prep.prompts import language_name
+
+
+def _output_language_rule(code: str) -> str:
+    """Append to any system prompt whose schema has free-text fields.
+
+    Without this the model answers in English off an English scaffold even for
+    a Chinese interview — the "report is all English" complaint. Enum values,
+    JSON keys and numbers stay as specified; only prose follows the rule.
+    """
+    return (
+        f" Write ALL free-text output (evidence, comments, reasons, strengths, "
+        f"weaknesses, next steps, summaries, model answers, notes) in "
+        f"{language_name(code)}. Keep JSON keys, numbers, enum and boolean "
+        "values exactly as specified."
     )
 
 
@@ -45,6 +66,7 @@ def _rubric_lines(rubric: list[RubricItem]) -> str:
 def evaluate_answer_prompts(
     question: PlannedQuestion,
     answer_transcript: str | None,
+    language: str = "en",
 ) -> tuple[str, str]:
     """System/user prompts to score one answer against its question rubric.
 
@@ -58,6 +80,7 @@ def evaluate_answer_prompts(
         "criterion by its weight. Cite concrete evidence from the answer in the "
         "evidence field. If no answer was given, assign a low score and say the "
         "question was not answered. Respond ONLY with the requested schema."
+        + _output_language_rule(language)
     )
     answer_block = (
         answer_transcript.strip()
@@ -82,6 +105,7 @@ def verify_score_prompts(
     evidence: str,
     score: float,
     transcript_excerpt: str = "",
+    language: str = "en",
 ) -> tuple[str, str]:
     """System/user prompts for a second, adversarial pass over a low/borderline score.
 
@@ -103,6 +127,7 @@ def verify_score_prompts(
         "same 0-5 scale (0 = no relevant content, 3 = solid, 5 = exceptional) with a "
         "brief reason. Be conservative; only move the score when the evidence clearly "
         "warrants it. Respond ONLY with the requested schema."
+        + _output_language_rule(language)
     )
     transcript_block = (
         f"CANDIDATE'S ANSWER TRANSCRIPT:\n{transcript_excerpt}\n\n"
@@ -129,7 +154,7 @@ def language_coach_prompts(transcript: str, primary_language: str) -> tuple[str,
         "fluency_score and clarity_score on a 0-5 scale, an approximate filler_word_count "
         "(um, uh, like, you know), notes on any code-switching between languages, and "
         "pronunciation notes. Be encouraging and specific. Respond ONLY with the "
-        "requested schema."
+        "requested schema." + _output_language_rule(primary_language)
     )
     user = (
         f"PRIMARY LANGUAGE: {primary_language}\n\n"
@@ -145,6 +170,7 @@ def model_answer_prompts(
     question: PlannedQuestion,
     candidate: CandidateProfile,
     answer_transcript: str | None,
+    language: str = "en",
 ) -> tuple[str, str]:
     """System/user prompts to draft an exemplary answer to one question."""
     system = (
@@ -152,6 +178,7 @@ def model_answer_prompts(
         "the interview question below, tailored to this candidate's background so they "
         "can study and reuse it. Use a clear structure (e.g. STAR for behavioral). "
         "Keep it under ~180 words. Respond with the model answer text only."
+        + _output_language_rule(language)
     )
     given = (
         f"\n\nCANDIDATE'S ACTUAL ANSWER (improve on this):\n{answer_transcript.strip()}"
@@ -187,6 +214,7 @@ def report_summary_prompts(
         "list of weaknesses, prioritized next_steps the candidate should study, and a "
         "warm, honest summary paragraph. Tie everything to evidence from the scores. "
         "Respond ONLY with the requested schema."
+        + _output_language_rule(ctx.plan.language_mode.primary)
     )
     user = (
         f"ROLE: {ctx.job.title} ({ctx.job.seniority}) at {ctx.job.company_name}\n"

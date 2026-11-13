@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { en } from "../lib/i18n/messages/en";
-import { vi } from "../lib/i18n/messages/vi";
 import { zh } from "../lib/i18n/messages/zh";
 import { DEFAULT_LOCALE, getMessages, isLocale, t } from "../lib/i18n";
 
@@ -15,25 +14,16 @@ function leafPaths(obj: unknown, prefix = ""): string[] {
   return [];
 }
 
-describe("Vietnamese UI pack (issue #50)", () => {
-  it("resolves `vi` to the real dictionary, not English", () => {
-    expect(DEFAULT_LOCALE).toBe("en");
-    expect(getMessages("vi")).toBe(vi);
+describe("UI locale registry (Chinese + English only)", () => {
+  it("resolves `zh` as the default and `en` as the fallback pack", () => {
+    // This fork ships Chinese as the default; EN stays the fallback pack.
+    expect(DEFAULT_LOCALE).toBe("zh");
+    expect(getMessages("zh")).toBe(zh);
     expect(getMessages("en")).toBe(en);
-    // Spot-check: the pack is actually translated.
-    expect(t(getMessages("vi"), "setup.start")).toBe("Bắt đầu phỏng vấn");
-    expect(t(getMessages("vi"), "setup.start")).not.toBe(
-      t(getMessages("en"), "setup.start"),
-    );
-  });
-
-  it("covers every `en` key (parity is also enforced by tsc)", () => {
-    const missing = leafPaths(en).filter((p) => t(vi, p) === p);
-    expect(missing).toEqual([]);
   });
 
   it("falls back visibly for unknown keys", () => {
-    expect(t(getMessages("vi"), "no.such.key")).toBe("no.such.key");
+    expect(t(getMessages("zh"), "no.such.key")).toBe("no.such.key");
     expect(t(getMessages("en"), "no.such.key")).toBe("no.such.key");
   });
 });
@@ -63,8 +53,9 @@ describe("Chinese UI pack", () => {
 describe("isLocale cookie-reader guard", () => {
   it("accepts every supported locale and rejects unknown values", () => {
     expect(isLocale("en")).toBe(true);
-    expect(isLocale("vi")).toBe(true);
     expect(isLocale("zh")).toBe(true);
+    // Vietnamese was retired: old `locale=vi` cookies must fall back, not crash.
+    expect(isLocale("vi")).toBe(false);
     expect(isLocale("fr")).toBe(false);
     expect(isLocale(undefined)).toBe(false);
     expect(isLocale("")).toBe(false);

@@ -34,7 +34,7 @@ export const metadata = {
     template: "%s · DeepInterview",
   },
   description:
-    "Open-source, voice-first AI mock interviews. DeepInterview reads your CV and the job, researches the company, runs an adaptive voice interview, then shows you exactly what to fix. English-first, 10+ languages.",
+    "Open-source, voice-first AI mock interviews. DeepInterview reads your CV and the job, researches the company, runs an adaptive voice interview, then shows you exactly what to fix. Available in English and Chinese.",
   applicationName: "DeepInterview",
   openGraph: {
     title: "DeepInterview — Practice the interview out loud",

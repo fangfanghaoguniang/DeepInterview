@@ -6,6 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { cn } from "@/lib/cn";
+import { t } from "@/lib/i18n";
+import { useMessages } from "@/lib/i18n/client";
 import {
   newCard,
   schedule,
@@ -16,12 +18,13 @@ import {
 } from "@/lib/srs";
 import { SAMPLE_FLASHCARDS, type Flashcard } from "@/lib/sample-mastery";
 
-const RATINGS: { rating: Rating; label: string; variant: "out" | "ink" }[] = [
-  { rating: "again", label: "Again", variant: "out" },
-  { rating: "hard", label: "Hard", variant: "out" },
-  { rating: "good", label: "Good", variant: "out" },
-  { rating: "easy", label: "Easy", variant: "ink" },
-];
+const RATINGS: { rating: Rating; labelKey: string; variant: "out" | "ink" }[] =
+  [
+    { rating: "again", labelKey: "prep.again", variant: "out" },
+    { rating: "hard", labelKey: "prep.hard", variant: "out" },
+    { rating: "good", labelKey: "prep.good", variant: "out" },
+    { rating: "easy", labelKey: "prep.easy", variant: "ink" },
+  ];
 
 /**
  * Spaced-repetition review. Cards flip (front → back) via a CSS 3D transform —
@@ -36,6 +39,7 @@ export function Flashcards({
 }: {
   cards?: Flashcard[];
 }) {
+  const messages = useMessages();
   // Seed per-card SRS state once, on the client, off a single `now`.
   const [states, setStates] = useState<Record<string, SrsState>>(() => {
     const now = Date.now();
@@ -108,18 +112,23 @@ export function Flashcards({
     <section aria-labelledby="flashcards-heading">
       <header className="mb-4 flex items-end justify-between">
         <div>
-          <Eyebrow>Spaced repetition</Eyebrow>
+          <Eyebrow>{t(messages, "prep.cardsEyebrow")}</Eyebrow>
           <h2
             id="flashcards-heading"
             className="mt-2 font-serif text-2xl text-ink"
           >
-            Flashcards
+            {t(messages, "prep.cardsTitle")}
           </h2>
         </div>
         <div className="text-right">
-          <p className="font-mono text-[13px] text-ink-soft">{dueCount} due</p>
+          <p className="font-mono text-[13px] text-ink-soft">
+            {t(messages, "prep.cardsDue").replace("{n}", String(dueCount))}
+          </p>
           <p className="font-mono text-[11px] text-faint">
-            {reviewedThisSession} reviewed
+            {t(messages, "prep.cardsReviewed").replace(
+              "{n}",
+              String(reviewedThisSession),
+            )}
           </p>
         </div>
       </header>
@@ -131,7 +140,7 @@ export function Flashcards({
         aria-valuenow={progressPct}
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-label="Review progress"
+        aria-label={t(messages, "prep.ariaReviewProgress")}
       >
         <div
           className="h-full rounded-full bg-accent transition-[width] duration-300"
@@ -145,10 +154,11 @@ export function Flashcards({
             <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#e8f3ec]">
               <Check className="h-6 w-6 text-ok" aria-hidden />
             </span>
-            <h3 className="font-serif text-xl text-ink">All caught up</h3>
+            <h3 className="font-serif text-xl text-ink">
+              {t(messages, "prep.cardsAllDone")}
+            </h3>
             <p className="max-w-sm text-[14px] leading-relaxed text-muted">
-              You&apos;ve cleared every card due right now. Come back when they
-              resurface, or reset to drill the whole deck again.
+              {t(messages, "prep.cardsAllDoneBody")}
             </p>
             <Button
               variant="out"
@@ -157,7 +167,7 @@ export function Flashcards({
               className="mt-1"
             >
               <RotateCcw className="h-3.5 w-3.5" aria-hidden />
-              Reset deck
+              {t(messages, "prep.cardsReset")}
             </Button>
           </CardContent>
         </Card>
@@ -168,7 +178,9 @@ export function Flashcards({
             className="[perspective:1600px]"
             role="button"
             tabIndex={0}
-            aria-label={flipped ? "Show question" : "Reveal answer"}
+            aria-label={flipped
+              ? t(messages, "prep.ariaShowQuestion")
+              : t(messages, "prep.ariaRevealAnswer")}
             onClick={() => setFlipped((f) => !f)}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
@@ -194,7 +206,7 @@ export function Flashcards({
                       {current.front}
                     </p>
                     <span className="mt-2 text-[12px] text-faint">
-                      Tap to reveal
+                      {t(messages, "prep.cardsTapReveal")}
                     </span>
                   </CardContent>
                 </Card>
@@ -207,7 +219,7 @@ export function Flashcards({
                 <Card className="flex h-full min-h-[220px] flex-col bg-accent-soft">
                   <CardContent className="flex flex-1 flex-col items-center justify-center gap-3 py-8 text-center">
                     <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-accent">
-                      Answer
+                      {t(messages, "prep.cardsAnswer")}
                     </span>
                     <p className="max-w-lg text-[15px] leading-relaxed text-ink-soft">
                       {current.back}
@@ -225,7 +237,7 @@ export function Flashcards({
               flipped ? "opacity-100" : "pointer-events-none opacity-40",
             )}
           >
-            {RATINGS.map(({ rating, label, variant }) => {
+            {RATINGS.map(({ rating, labelKey, variant }) => {
               const st = states[current.id] ?? newCard(now);
               return (
                 <Button
@@ -236,7 +248,7 @@ export function Flashcards({
                   disabled={!flipped}
                   className="flex-col gap-0.5 py-2"
                 >
-                  <span>{label}</span>
+                  <span>{t(messages, labelKey)}</span>
                   <span className="font-mono text-[10px] opacity-70">
                     {previewInterval(st, rating, now)}
                   </span>
@@ -245,8 +257,7 @@ export function Flashcards({
             })}
           </div>
           <p className="mt-2 text-center font-mono text-[11px] text-faint">
-            FSRS-like scheduler (SM-2): each rating sets the next review
-            interval.
+            {t(messages, "prep.cardsSchedulerNote")}
           </p>
         </>
       )}

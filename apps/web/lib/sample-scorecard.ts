@@ -89,7 +89,7 @@ export const SAMPLE_SCORECARD: ScoreCard = {
     filler_word_count: 14,
     clarity_score: 3.9,
     code_switching_notes:
-      "Occasional switch to Vietnamese for emphasis on a few terms; did not impede comprehension.",
+      "Occasional switch to Chinese for emphasis on a few terms; did not impede comprehension.",
     pronunciation_notes:
       "Clear overall; minor stress drift on long multi-syllable technical terms.",
     summary:

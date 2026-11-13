@@ -791,6 +791,23 @@ def test_build_tts_kokoro_falls_back_for_a_language_it_cannot_speak() -> None:
     assert isinstance(tts, elevenlabs.TTS), "vi must reroute to a voice that speaks it"
 
 
+def test_build_turn_handling_is_purely_manual() -> None:
+    """Only the candidate's "I'm done speaking" button ends a turn.
+
+    Silence endpointing and the semantic EOU model are both off by design:
+    a thinking pause must never hand the floor to the interviewer. Pin the
+    config so an accidental re-enabling of auto turn detection fails loud.
+    """
+    for lang in ("zh", "en", "vi"):
+        handling = worker.build_turn_handling(lang)
+        assert handling["turn_detection"] == "manual"
+        assert "endpointing" not in handling
+        # Noise gating survives: raw VAD energy alone can't interrupt.
+        assert handling["interruption"] == {"min_words": 3}
+
+    assert worker.FINISH_TURN_TOPIC == "finish_answer"
+
+
 def test_build_conn_options_only_widens_for_local_providers() -> None:
     """The SDK's 10s per-request ceiling kills local turns before the first token.
 

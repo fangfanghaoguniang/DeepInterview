@@ -1,6 +1,8 @@
 import { Container } from "@/components/ui/container";
 import { BrandMark } from "@/components/ui/brand-mark";
 import { GITHUB_URL, DOCS_URL } from "@/lib/site";
+import { t } from "@/lib/i18n";
+import { getServerMessages } from "@/lib/i18n/server";
 
 type FooterLink = { href: string; label: string; external?: boolean };
 
@@ -35,26 +37,30 @@ function FooterCol({ title, links }: { title: string; links: FooterLink[] }) {
   );
 }
 
-const PRODUCT_LINKS: FooterLink[] = [
-  { href: "#how", label: "How it works" },
-  { href: "#product", label: "Features" },
-  { href: "#faq", label: "FAQ" },
+/** Hrefs stay static; labels resolve from these dictionary keys per locale. */
+const PRODUCT_LINKS: { href: string; key: string }[] = [
+  { href: "#how", key: "landing.foot.how" },
+  { href: "#product", key: "landing.foot.features" },
+  { href: "#faq", key: "landing.foot.faq" },
 ];
 
-const DEVELOPER_LINKS: FooterLink[] = [
-  { href: GITHUB_URL, label: "GitHub", external: true },
-  { href: DOCS_URL, label: "Documentation", external: true },
-  { href: DOCS_URL, label: "Self-hosting", external: true },
-  { href: GITHUB_URL, label: "Language packs", external: true },
+const DEVELOPER_LINKS: { href: string; key: string; external?: boolean }[] = [
+  { href: GITHUB_URL, key: "landing.foot.github", external: true },
+  { href: DOCS_URL, key: "landing.foot.docs", external: true },
+  { href: DOCS_URL, key: "landing.foot.selfhost", external: true },
+  { href: GITHUB_URL, key: "landing.foot.packs", external: true },
 ];
 
-const COMMUNITY_LINKS: FooterLink[] = [
-  { href: `${GITHUB_URL}/discussions`, label: "Discussions", external: true },
-  { href: `${GITHUB_URL}/issues`, label: "Issues", external: true },
-  { href: GITHUB_URL, label: "Contributing", external: true },
+const COMMUNITY_LINKS: { href: string; key: string; external?: boolean }[] = [
+  { href: `${GITHUB_URL}/discussions`, key: "landing.foot.discussions", external: true },
+  { href: `${GITHUB_URL}/issues`, key: "landing.foot.issues", external: true },
+  { href: GITHUB_URL, key: "landing.foot.contributing", external: true },
 ];
 
-export function Footer() {
+export async function Footer() {
+  const m = await getServerMessages();
+  const withLabels = (links: { href: string; key: string; external?: boolean }[]) =>
+    links.map((l) => ({ ...l, label: t(m, l.key) }));
   return (
     <footer className="mt-[30px] border-t border-line pt-[54px] pb-10">
       <Container>
@@ -67,17 +73,16 @@ export function Footer() {
               </span>
             </div>
             <p className="max-w-[280px] text-sm text-muted">
-              The open-source AI voice interviewer. Practice out loud, in any
-              language.
+              {t(m, "landing.foot.tagline")}
             </p>
           </div>
-          <FooterCol title="Product" links={PRODUCT_LINKS} />
-          <FooterCol title="Developers" links={DEVELOPER_LINKS} />
-          <FooterCol title="Community" links={COMMUNITY_LINKS} />
+          <FooterCol title={t(m, "landing.foot.product")} links={withLabels(PRODUCT_LINKS)} />
+          <FooterCol title={t(m, "landing.foot.developers")} links={withLabels(DEVELOPER_LINKS)} />
+          <FooterCol title={t(m, "landing.foot.community")} links={withLabels(COMMUNITY_LINKS)} />
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2.5 border-t border-line pt-[22px] text-[13px] text-faint">
-          <span>© 2026 DeepInterview · Apache 2.0</span>
-          <span className="font-mono">Built in the open</span>
+          <span>{t(m, "landing.foot.copy")}</span>
+          <span className="font-mono">{t(m, "landing.foot.built")}</span>
         </div>
       </Container>
     </footer>

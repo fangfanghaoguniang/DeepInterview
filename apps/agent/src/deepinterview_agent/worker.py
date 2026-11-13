@@ -487,45 +487,30 @@ def build_tts(settings, language="en"):
     return cartesia.TTS(language=lang)
 
 
-# Languages the LiveKit multilingual end-of-turn model can judge semantically.
-# Vietnamese is NOT among them — for unsupported languages the session falls
-# back to silence-based endpointing, where the default 0.5s cutoff chops
-# natural mid-sentence pauses into separate turns (confirmed in vi testing:
-# fragmented one-clause "answers" with the agent jumping in between).
-_EOU_MODEL_LANGS = frozenset(
-    {"en", "es", "fr", "de", "it", "pt", "nl", "zh", "ja", "ko", "id", "tr", "ru"}
-)
+# The candidate's "I'm done speaking" button publishes this data-channel
+# topic; the entrypoint handler commits the user turn when it arrives.
+# CONTRACT: kept in sync with the finish signal in
+# apps/web/components/interview/live-room.tsx.
+FINISH_TURN_TOPIC = "finish_answer"
 
 
 def build_turn_handling(language: str = "en") -> dict:
-    """Turn-handling config shared by the interview and coach sessions.
+    """Purely manual turn-taking: NOTHING ends a candidate's turn automatically.
 
-    Defenses on top of the SDK defaults:
+    Semantic end-of-turn and silence endpointing are both switched off — a
+    thinking pause, however long, never hands the floor to the interviewer.
+    The candidate clicks "I'm done speaking", the frontend publishes
+    ``FINISH_TURN_TOPIC`` on the data channel, and the room handler calls
+    ``session.commit_user_turn()`` (which flushes the STT buffer and waits
+    for the late final transcript before generating the reply).
 
-    * ``min_words: 3`` — an interruption only registers once the candidate has
-      actually SAID a few transcribed words. The default (0) lets raw VAD
-      energy interrupt, so a door slam or background chatter cuts the
-      interviewer off mid-sentence.
-    * Semantic end-of-turn (``MultilingualModel``) for languages it supports —
-      "is the candidate done?" is judged from the transcript instead of
-      waiting for clean silence.
-    * For languages the model can't judge (e.g. Vietnamese): stretch the
-      silence endpointing window instead (1.2s min / 4s max) so natural
-      pauses don't end the candidate's turn mid-sentence.
+    ``min_words: 3`` still gates interruptions so raw VAD energy (door slam,
+    background chatter) can't cut the interviewer off mid-sentence.
+
+    The ``language`` parameter is retained for call-site stability; manual
+    mode is language-agnostic.
     """
-    handling: dict = {"interruption": {"min_words": 3}}
-    if language in _EOU_MODEL_LANGS:
-        try:
-            from livekit.plugins.turn_detector.multilingual import (
-                MultilingualModel,
-            )
-
-            handling["turn_detection"] = MultilingualModel()
-            return handling
-        except Exception:  # noqa: BLE001 - optional model; fall through to endpointing
-            log.warning("build_turn_handling: turn-detector unavailable; using endpointing")
-    handling["endpointing"] = {"min_delay": 1.2, "max_delay": 4.0}
-    return handling
+    return {"interruption": {"min_words": 3}, "turn_detection": "manual"}
 
 
 def build_room_options(settings):
@@ -754,10 +739,34 @@ async def entrypoint(ctx: JobContext) -> None:
         # build_conn_options), so the cloud path is untouched.
         **({"conn_options": conn_options} if conn_options else {}),
         # Lean live loop: preemptive generation is on by default in 1.5.x;
-        # turn_handling adds the noisy-environment defenses (semantic
-        # end-of-turn + word-gated interruptions — see build_turn_handling).
+        # turn_handling switches off automatic end-of-turn and keeps the
+        # word-gated interruptions — see build_turn_handling.
         turn_handling=build_turn_handling(lang_mode.primary),
     )
+
+    # Purely manual turn-taking (see build_turn_handling): the only thing
+    # that ends a candidate's turn is the frontend "I'm done speaking"
+    # button arriving on the data channel. transcript_timeout is generous
+    # because the batch SenseVoice path can return the final transcript
+    # several seconds after the audio stops.
+    @ctx.room.on("data_received")
+    def _on_finish_turn(data) -> None:
+        if getattr(data, "topic", "") != FINISH_TURN_TOPIC:
+            return
+        log.info("worker: finish_answer received -> committing user turn")
+        try:
+            fut = session.commit_user_turn(transcript_timeout=5.0)
+        except RuntimeError:  # session not started / already ending
+            log.warning("worker: finish_answer ignored; session not running")
+            return
+
+        def _done(f) -> None:
+            try:
+                f.result()
+            except Exception:  # noqa: BLE001 - logged, never crashes the job
+                log.exception("worker: commit_user_turn failed")
+
+        fut.add_done_callback(_done)
 
     # Persisted transcript = real committed turns (STT + agent speech), not
     # whatever the LLM chose to pass to save_answer.

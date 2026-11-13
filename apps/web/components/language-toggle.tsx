@@ -3,32 +3,31 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import type { Locale } from "@/lib/i18n";
-import { isLocale } from "@/lib/i18n";
+import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 
 const OPTIONS: { value: Locale; label: string }[] = [
-  { value: "en", label: "EN" },
-  { value: "vi", label: "VI" },
   { value: "zh", label: "中文" },
+  { value: "en", label: "EN" },
 ];
 
 function readLocaleCookie(): Locale {
-  if (typeof document === "undefined") return "en";
+  if (typeof document === "undefined") return DEFAULT_LOCALE;
   const match = document.cookie
     .split("; ")
     .find((c) => c.startsWith("locale="));
   const value = match?.split("=")[1];
-  return isLocale(value) ? value : "en";
+  return isLocale(value) ? value : DEFAULT_LOCALE;
 }
 
 /**
  * Minimal locale switcher. Persists the choice in a `locale` cookie and
- * refreshes so server components re-render in the new language. English-first:
- * unset cookie resolves to EN.
+ * refreshes so server components re-render in the new language. Unset cookie
+ * resolves to DEFAULT_LOCALE.
  */
 export function LanguageToggle({ className }: { className?: string }) {
   const router = useRouter();
-  const [locale, setLocale] = useState<Locale>("en");
+  const [locale, setLocale] = useState<Locale>(DEFAULT_LOCALE);
 
   // Read the cookie after mount so SSR markup stays stable (no hydration drift).
   useEffect(() => {

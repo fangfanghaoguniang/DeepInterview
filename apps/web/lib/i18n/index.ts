@@ -1,25 +1,29 @@
-import { en, type Messages } from "./messages/en";
-import { vi, type Localized } from "./messages/vi";
+import { en, type Localized, type Messages } from "./messages/en";
 import { zh } from "./messages/zh";
 
-/** Supported UI locales. English-first; more packs plug in here. */
-export type Locale = "en" | "vi" | "zh";
+/** Supported UI locales. This fork ships Chinese + English only. */
+export type Locale = "en" | "zh";
 
 /**
  * All supported locales, in the order the switcher shows them. Kept next to
  * the `Locale` union so adding a pack is one edit — the cookie readers
  * (`language-toggle`, `client.ts`, root layout) all derive from this list
- * instead of hard-coding `=== "vi" ? "vi" : "en"`, which silently reverted
- * every unknown value to English and had to be updated for each new pack.
+ * instead of hard-coding binary `=== "xx" ? … : "en"` chains, which silently
+ * reverted every unknown value to English and had to be updated per pack.
  */
-export const LOCALES: readonly Locale[] = ["en", "vi", "zh"];
+export const LOCALES: readonly Locale[] = ["zh", "en"];
 
 /** Type guard used by cookie readers. */
 export function isLocale(value: unknown): value is Locale {
   return typeof value === "string" && (LOCALES as readonly string[]).includes(value);
 }
 
-export const DEFAULT_LOCALE: Locale = "en";
+/**
+ * Locale used when the `locale` cookie is unset. This fork is Chinese-first:
+ * an unset cookie resolves to the CN pack, and `en` remains the fallback
+ * dictionary for unknown/unresolvable values.
+ */
+export const DEFAULT_LOCALE: Locale = "zh";
 
 /**
  * What message readers (`t()`, `useMessages()`) actually handle: the exact
@@ -31,11 +35,10 @@ export type Dictionary = Localized<Messages>;
 
 const dictionaries: Record<Locale, Dictionary> = {
   en,
-  vi,
   zh,
 };
 
-/** Resolve the message dictionary for a locale (defaults to English). */
+/** Resolve the message dictionary for a locale (defaults to DEFAULT_LOCALE). */
 export function getMessages(locale: Locale = DEFAULT_LOCALE): Dictionary {
   return dictionaries[locale] ?? en;
 }

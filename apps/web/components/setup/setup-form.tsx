@@ -30,15 +30,10 @@ import { DeviceCheck } from "@/components/setup/device-check";
 // A small, friendly subset for the picker; full set still lives in LANGUAGES.
 const LANGUAGE_LABELS: Partial<Record<Language, string>> = {
   en: "English",
-  vi: "Tiếng Việt",
-  es: "Español",
   zh: "中文",
-  fr: "Français",
-  de: "Deutsch",
-  ja: "日本語",
 };
 const OFFERED: Language[] = (
-  ["en", "vi", "es", "zh", "fr", "de", "ja"] as Language[]
+  ["zh", "en"] as Language[]
 ).filter((l) => (LANGUAGES as readonly string[]).includes(l));
 
 type Step = { key: string; label: string };
@@ -154,7 +149,11 @@ export function SetupForm({ r2Configured }: { r2Configured: boolean }) {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result as string);
       reader.onerror = () =>
-        reject(reader.error ?? new Error("Could not read file."));
+        reject(
+          new Error(
+            "setup.readFailed", // dict key; resolved in onSubmit's catch
+          ),
+        );
       reader.readAsDataURL(f);
     });
   }
@@ -170,7 +169,7 @@ export function SetupForm({ r2Configured }: { r2Configured: boolean }) {
         size: f.size,
       }),
     });
-    if (!res.ok) throw new Error("Upload could not be prepared.");
+    if (!res.ok) throw new Error("setup.uploadPrepareFailed");
     const { uploadUrl, publicUrl } = (await res.json()) as {
       uploadUrl: string;
       publicUrl: string;
@@ -180,7 +179,7 @@ export function SetupForm({ r2Configured }: { r2Configured: boolean }) {
       headers: { "content-type": f.type || "application/octet-stream" },
       body: f,
     });
-    if (!put.ok) throw new Error("File upload failed.");
+    if (!put.ok) throw new Error("setup.uploadFailed");
     return publicUrl;
   }
 
@@ -249,8 +248,15 @@ export function SetupForm({ r2Configured }: { r2Configured: boolean }) {
         }`,
       );
     } catch (err) {
+      // Our own upload/read failures carry a dictionary key as their message;
+      // anything else (network, server) falls through to the generic error.
+      const raw = err instanceof Error ? err.message : "";
+      const translated = raw.startsWith("setup.") ? t(messages, raw) : "";
       setError(
-        err instanceof Error ? err.message : t(messages, "common.error"),
+        translated ||
+          (raw && !raw.startsWith("setup.")
+            ? raw
+            : t(messages, "common.error")),
       );
       setSubmitting(false);
     }

@@ -101,6 +101,7 @@ async def verify_scores(
             cs.evidence,
             cs.score,
             transcript_excerpt=transcript_by_competency.get(cs.competency, ""),
+            language=ctx.plan.language_mode.primary,
         )
         verdict = await _guarded(
             deps.llm.complete_json(system=system, user=user, schema=_Verdict),

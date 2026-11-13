@@ -37,6 +37,7 @@ import {
   StartAudio,
   useConnectionState,
   useLocalParticipant,
+  useRoomContext,
   useTranscriptions,
   useVoiceAssistant,
 } from "@livekit/components-react";
@@ -297,6 +298,7 @@ function LiveSession({
   // own voice never reaches a mic that is closed unless we open it to answer.
   const [recording, setRecording] = React.useState(false);
   const [recordSeconds, setRecordSeconds] = React.useState(0);
+  const room = useRoomContext();
 
   // Converge actual mic mute to the recording intent: unmuted only while
   // recording. Re-runs when the device (re)publishes so a re-enabled mic
@@ -310,6 +312,27 @@ function LiveSession({
       void pub.mute();
     }
   }, [recording, microphoneTrack, localParticipant]);
+
+  // Purely manual turn-taking: this signal is the ONLY thing that ends a
+  // candidate's turn (the worker commits it and the interviewer replies).
+  // It fires on the recording true->false edge, so the button tap, the 90s
+  // auto-stop and the device-mute path all route through it uniformly.
+  // CONTRACT: the topic must match worker.py FINISH_TURN_TOPIC.
+  const prevRecording = React.useRef(false);
+  React.useEffect(() => {
+    if (prevRecording.current && !recording) {
+      try {
+        void room.localParticipant.publishData(
+          new TextEncoder().encode("finish"),
+          { topic: "finish_answer" },
+        );
+      } catch {
+        // Not connected / participant unusable — there is no live turn
+        // to commit, so dropping the signal is safe.
+      }
+    }
+    prevRecording.current = recording;
+  }, [recording, room]);
 
   // Live timer + safeguard: auto-submit (stop recording) after 90s so a missed
   // "I'm done" tap can't wedge the turn open forever.

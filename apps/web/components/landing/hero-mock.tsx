@@ -1,16 +1,23 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-
-const BASE =
-  "At a fintech startup we sharded the ledger by region and added idempotency keys";
-const PHRASES = [
-  BASE,
-  `${BASE} — then backfilled idempotently`,
-  `${BASE} and cut p99 from 800ms to 120ms`,
-];
+import { useEffect, useMemo, useRef, useState } from "react";
+import { t } from "@/lib/i18n";
+import { useMessages } from "@/lib/i18n/client";
 
 export function HeroMock() {
+  const messages = useMessages();
+  // Stable across renders for a given locale — the typing effect depends on it.
+  const { BASE, PHRASES } = useMemo(() => {
+    const base = t(messages, "landing.mock.answerBase");
+    return {
+      BASE: base,
+      PHRASES: [
+        base,
+        `${base}${t(messages, "landing.mock.answerExt1")}`,
+        `${base}${t(messages, "landing.mock.answerExt2")}`,
+      ],
+    };
+  }, [messages]);
   const [said, setSaid] = useState(BASE);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -39,7 +46,8 @@ export function HeroMock() {
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
-  }, []);
+    // Restart the typing loop when the dictionary (locale) changes.
+  }, [BASE, PHRASES]);
 
   return (
     <div
@@ -66,24 +74,24 @@ export function HeroMock() {
             04:12
           </div>
           <div className="self-start rounded-md border border-line px-2 py-[3px] font-mono text-[11px] text-ink-soft">
-            EN · Recruiter
+            {t(messages, "landing.mock.role")}
           </div>
           <div className="self-start rounded-md border border-line px-2 py-[3px] font-mono text-[11px] text-ink-soft">
-            Senior Backend
+            {t(messages, "landing.mock.track")}
           </div>
         </div>
         <div className="flex min-h-[268px] flex-col gap-[13px] px-[18px] py-4">
           <div className="flex gap-2.5">
             <div className="w-[74px] flex-shrink-0 pt-0.5 font-mono text-[10.5px] uppercase tracking-[0.06em] text-faint">
-              Interviewer
+              {t(messages, "landing.mock.interviewer")}
             </div>
             <div className="text-[13.5px] font-[450] leading-[1.5] text-ink">
-              Walk me through a time you scaled a system under heavy load.
+              {t(messages, "landing.mock.question")}
             </div>
           </div>
           <div className="flex gap-2.5">
             <div className="w-[74px] flex-shrink-0 pt-0.5 font-mono text-[10.5px] uppercase tracking-[0.06em] text-faint">
-              You
+              {t(messages, "landing.mock.you")}
             </div>
             <div className="text-[13.5px] leading-[1.5] text-ink-soft">
               {said}
@@ -92,9 +100,9 @@ export function HeroMock() {
           </div>
           <div className="mt-auto flex flex-wrap gap-[18px] border-t border-line-2 pt-3">
             {[
-              ["Communication", "8.5"],
-              ["System design", "7.0"],
-              ["Clarity", "9.0"],
+              [t(messages, "landing.mock.scoreComm"), "8.5"],
+              [t(messages, "landing.mock.scoreDesign"), "7.0"],
+              [t(messages, "landing.mock.scoreClarity"), "9.0"],
             ].map(([k, v]) => (
               <div key={k} className="flex flex-col gap-[3px]">
                 <span className="font-mono text-[10.5px] uppercase tracking-[0.05em] text-faint">

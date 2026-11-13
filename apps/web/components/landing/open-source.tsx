@@ -4,20 +4,21 @@ import { Eyebrow } from "@/components/ui/eyebrow";
 import { Reveal } from "@/components/ui/reveal";
 import { buttonClasses } from "@/components/ui/button";
 import { GITHUB_URL, DOCS_URL } from "@/lib/site";
+import { t } from "@/lib/i18n";
+import { getServerMessages } from "@/lib/i18n/server";
 
-export function OpenSource() {
+export async function OpenSource() {
+  const m = await getServerMessages();
   return (
     <section id="oss" className="scroll-mt-24 border-t border-line py-[84px]">
       <Container className="grid items-center gap-[54px] md:grid-cols-2">
         <Reveal>
-          <Eyebrow>Open source</Eyebrow>
+          <Eyebrow>{t(m, "landing.oss.eyebrow")}</Eyebrow>
           <h2 className="serif my-3.5 text-[36px]">
-            Run it yourself in one command.
+            {t(m, "landing.oss.title")}
           </h2>
           <p className="mb-[22px] text-base text-muted">
-            The full voice pipeline, multi-agent brain and study coach are open
-            under Apache 2.0. Bring your own model keys, add a language pack, or
-            contribute back.
+            {t(m, "landing.oss.body")}
           </p>
           <div className="flex flex-wrap gap-3">
             <a
@@ -26,7 +27,7 @@ export function OpenSource() {
               rel="noreferrer"
               className={buttonClasses()}
             >
-              <Star size={16} /> Star on GitHub
+              <Star size={16} /> {t(m, "landing.oss.star")}
             </a>
             <a
               href={DOCS_URL}
@@ -34,7 +35,7 @@ export function OpenSource() {
               rel="noreferrer"
               className={buttonClasses({ variant: "out" })}
             >
-              Read the docs
+              {t(m, "landing.oss.docs")}
             </a>
           </div>
         </Reveal>
@@ -48,7 +49,7 @@ export function OpenSource() {
             </div>
             <pre className="overflow-x-auto p-[18px] font-mono text-[13px] leading-[1.7] text-[#D6D4DE]">
               <span className="text-[#6B6B72]">
-                # clone &amp; run the full stack
+                {t(m, "landing.oss.termComment")}
               </span>
               {"\n"}
               <span className="text-[#7C84F2]">$</span> git clone
@@ -56,15 +57,15 @@ export function OpenSource() {
               <span className="text-[#7C84F2]">$</span> cd DeepInterview{"\n"}
               <span className="text-[#7C84F2]">$</span> docker compose up{"\n"}
               <span className="text-[#5BBF8B]">
-                ✓ web → http://localhost:3000
+                {t(m, "landing.oss.termWeb")}
               </span>
               {"\n"}
               <span className="text-[#5BBF8B]">
-                ✓ agent → connected (LiveKit)
+                {t(m, "landing.oss.termAgent")}
               </span>
               {"\n"}
               <span className="text-[#5BBF8B]">
-                ✓ ready → start an interview
+                {t(m, "landing.oss.termReady")}
               </span>
             </pre>
           </div>

@@ -4,6 +4,8 @@ import { Eyebrow } from "@/components/ui/eyebrow";
 import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { LanguageToggle } from "@/components/language-toggle";
+import { t } from "@/lib/i18n";
+import { getServerMessages } from "@/lib/i18n/server";
 import type { ScoreCard, StudyModule } from "@deepinterview/shared";
 import { serverEnv } from "@/lib/env";
 import { SessionViewSchema } from "@/lib/session";
@@ -58,6 +60,7 @@ export default async function PrepPage({
   searchParams: Promise<{ session?: string | string[] }>;
 }) {
   // No auth gate — OSS runs without sign-in.
+  const m = await getServerMessages();
   const params = await searchParams;
   const sessionId =
     typeof params.session === "string" && params.session
@@ -89,26 +92,17 @@ export default async function PrepPage({
           <Eyebrow>DeepInterview</Eyebrow>
         </Link>
         <div className="flex items-center gap-3">
-          {isSample && <Badge variant="outline">Preview (sample data)</Badge>}
+          {isSample && <Badge variant="outline">{t(m, "prep.pageBadgePreview")}</Badge>}
           <LanguageToggle />
         </div>
       </header>
 
       <div className="mt-6">
-        <h1 className="font-serif text-4xl text-ink">Prep Coach</h1>
+        <h1 className="font-serif text-4xl text-ink">{t(m, "prep.pageTitle")}</h1>
         <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-muted">
-          {isSample ? (
-            <>
-              Here&apos;s how the coach works, shown with sample weak areas —
-              finish an interview and open the coach from your report to get
-              your real plan.
-            </>
-          ) : (
-            <>
-              Your interview surfaced a few weak areas. Here&apos;s the plan to
-              close them — study, drill, talk it through, then run it back.
-            </>
-          )}
+          {isSample
+            ? t(m, "prep.pageIntroSample")
+            : t(m, "prep.pageIntroReal")}
         </p>
       </div>
 
@@ -122,11 +116,10 @@ export default async function PrepPage({
             />
             <div>
               <h2 className="font-serif text-lg text-ink">
-                Turn weak areas into your next mock
+                {t(m, "prep.loopTitle")}
               </h2>
               <p className="mt-0.5 text-[13.5px] text-muted">
-                The fastest way to improve is to study, then test under
-                pressure. Loop straight back into a tailored interview.
+                {t(m, "prep.loopBody")}
               </p>
             </div>
           </div>
@@ -134,7 +127,7 @@ export default async function PrepPage({
             href="/setup"
             className={buttonClasses({ className: "sm:shrink-0" })}
           >
-            Start a new mock
+            {t(m, "prep.loopCta")}
             <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>
         </div>

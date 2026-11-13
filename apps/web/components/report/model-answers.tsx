@@ -1,4 +1,6 @@
 import type { ModelAnswer } from "@deepinterview/shared";
+import { t } from "@/lib/i18n";
+import { getServerMessages } from "@/lib/i18n/server";
 import {
   Card,
   CardDescription,
@@ -12,7 +14,7 @@ import { Eyebrow } from "@/components/ui/eyebrow";
  * `question_id` via the provided lookup map; if a question is unknown we still
  * render the answer under its id. Frosted (paper) panels. Server component.
  */
-export function ModelAnswers({
+export async function ModelAnswers({
   answers,
   questionText,
 }: {
@@ -20,17 +22,15 @@ export function ModelAnswers({
   /** question_id -> human question text */
   questionText: Record<string, string>;
 }) {
+  const m = await getServerMessages();
   if (answers.length === 0) return null;
 
   return (
     <Card>
       <CardHeader>
-        <Eyebrow>Coaching</Eyebrow>
-        <CardTitle className="mt-1">Stronger answers</CardTitle>
-        <CardDescription>
-          How a top candidate might have framed the moments that cost you
-          points.
-        </CardDescription>
+        <Eyebrow>{t(m, "report.coachingEyebrow")}</Eyebrow>
+        <CardTitle className="mt-1">{t(m, "report.modelTitle")}</CardTitle>
+        <CardDescription>{t(m, "report.modelDesc")}</CardDescription>
       </CardHeader>
       <div className="space-y-3 px-6 pb-6">
         {answers.map((a, i) => (
@@ -39,7 +39,11 @@ export function ModelAnswers({
             className="rounded-[10px] border border-line bg-paper/70 p-4 backdrop-blur-sm"
           >
             <p className="text-[13px] font-medium leading-snug text-ink">
-              {questionText[a.question_id] ?? `Question ${a.question_id}`}
+              {questionText[a.question_id] ??
+                t(m, "report.questionFallback").replace(
+                  "{id}",
+                  a.question_id,
+                )}
             </p>
             <p className="mt-2 border-l-2 border-accent/40 pl-3 text-sm leading-relaxed text-ink-soft">
               {a.answer}

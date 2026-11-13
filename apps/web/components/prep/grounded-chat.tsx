@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/cn";
+import { t } from "@/lib/i18n";
+import { useLocale, useMessages } from "@/lib/i18n/client";
 import { askCoach, type Citation } from "@/lib/coach";
-import { useLocale } from "@/lib/i18n/client";
 
 interface ChatTurn {
   id: string;
@@ -42,6 +43,12 @@ export function GroundedChat({ sessionId }: { sessionId?: string | null }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   // Answer in the user's chosen language, not always English.
   const locale = useLocale();
+  const messages = useMessages();
+  const SUGGESTIONS = [
+    t(messages, "prep.chatSug1"),
+    t(messages, "prep.chatSug2"),
+    t(messages, "prep.chatSug3"),
+  ];
 
   // Cycle the thinking label so a slow retrieval reads as progress.
   useEffect(() => {
@@ -89,7 +96,7 @@ export function GroundedChat({ sessionId }: { sessionId?: string | null }) {
         {
           id: `c-${Date.now()}`,
           role: "coach",
-          text: "I couldn't reach the knowledge base just now. Try again in a moment.",
+          text: t(messages, "prep.chatErrKb"),
         },
       ]);
     } finally {
@@ -101,8 +108,10 @@ export function GroundedChat({ sessionId }: { sessionId?: string | null }) {
     <Card className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-line px-6 py-4">
         <div>
-          <Eyebrow>AI study coach</Eyebrow>
-          <h3 className="mt-1 font-serif text-lg text-ink">Ask your coach</h3>
+          <Eyebrow>{t(messages, "prep.chatEyebrow")}</Eyebrow>
+          <h3 className="mt-1 font-serif text-lg text-ink">
+            {t(messages, "prep.chatTitle")}
+          </h3>
         </div>
         <Sparkles className="h-4 w-4 text-accent" aria-hidden />
       </div>
@@ -114,11 +123,7 @@ export function GroundedChat({ sessionId }: { sessionId?: string | null }) {
       >
         {turns.length === 0 && !loading && (
           <div className="text-[14px] leading-relaxed text-muted">
-            <p>
-              Ask anything about your weak areas. Your coach explains concepts
-              and gives worked examples; when grounded sources are available,
-              they appear with each answer.
-            </p>
+            <p>{t(messages, "prep.chatEmpty")}</p>
             <div className="mt-4 flex flex-wrap gap-2">
               {SUGGESTIONS.map((s) => (
                 <button
@@ -191,11 +196,11 @@ export function GroundedChat({ sessionId }: { sessionId?: string | null }) {
         {loading && (
           <div className="flex justify-start">
             <div className="inline-flex items-center gap-2.5 rounded-card border border-line bg-paper px-4 py-3 text-[13px] text-muted">
-              <Spinner label="Thinking" />
+              <Spinner label={t(messages, "prep.chatThinking")} />
               <span>
                 {phase === "retrieving"
-                  ? "Retrieving from your knowledge base…"
-                  : "Grounding the answer in sources…"}
+                  ? t(messages, "prep.chatRetrieving")
+                  : t(messages, "prep.chatGrounding")}
               </span>
             </div>
           </div>
@@ -214,8 +219,8 @@ export function GroundedChat({ sessionId }: { sessionId?: string | null }) {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask about a weak area…"
-            aria-label="Ask the coach a question"
+            placeholder={t(messages, "prep.chatPlaceholder")}
+            aria-label={t(messages, "prep.chatAriaAsk")}
             disabled={loading}
             className="flex-1 rounded-[10px] border border-line bg-panel px-3.5 py-2.5 text-[14px] text-ink placeholder:text-faint focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-paper disabled:opacity-50"
           />
@@ -223,7 +228,7 @@ export function GroundedChat({ sessionId }: { sessionId?: string | null }) {
             type="submit"
             size="md"
             disabled={loading || input.trim().length === 0}
-            aria-label="Send question"
+            aria-label={t(messages, "prep.chatAriaSend")}
           >
             <Send className="h-4 w-4" aria-hidden />
           </Button>

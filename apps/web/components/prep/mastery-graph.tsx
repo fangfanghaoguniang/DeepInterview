@@ -13,17 +13,24 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Eyebrow } from "@/components/ui/eyebrow";
+import { t } from "@/lib/i18n";
+import { useMessages } from "@/lib/i18n/client";
 import {
   SAMPLE_MASTERY_GRAPH,
   type MasteryGraph,
   type MasteryState,
 } from "@/lib/sample-mastery";
-import { MASTERY_LABEL, MASTERY_COLORS } from "@/components/prep/status-chip";
+import {
+  MASTERY_STATES,
+  MASTERY_COLORS,
+  masteryLabel,
+} from "@/components/prep/status-chip";
 
 /** Data carried by each custom mastery node. */
 type MasteryNodeData = {
   label: string;
   state: MasteryState;
+  stateLabel: string;
 };
 type MasteryFlowNode = Node<MasteryNodeData, "mastery">;
 
@@ -56,7 +63,7 @@ function MasteryNodeComponent({ data }: NodeProps<MasteryFlowNode>) {
         className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.1em]"
         style={{ color: c.fg }}
       >
-        {MASTERY_LABEL[data.state]}
+        {data.stateLabel}
       </p>
       <Handle
         type="source"
@@ -72,7 +79,7 @@ function MasteryNodeComponent({ data }: NodeProps<MasteryFlowNode>) {
 // render and trip a React Flow warning.
 const NODE_TYPES: NodeTypes = { mastery: MasteryNodeComponent };
 
-function toFlow(graph: MasteryGraph): {
+function toFlow(graph: MasteryGraph, m: ReturnType<typeof useMessages>): {
   nodes: MasteryFlowNode[];
   edges: Edge[];
 } {
@@ -80,7 +87,7 @@ function toFlow(graph: MasteryGraph): {
     id: n.id,
     type: "mastery",
     position: { x: n.x, y: n.y },
-    data: { label: n.label, state: n.state },
+    data: { label: n.label, state: n.state, stateLabel: masteryLabel(m, n.state) },
     draggable: false,
     selectable: false,
     connectable: false,
@@ -113,24 +120,25 @@ export function MasteryGraphView({
 }: {
   graph?: MasteryGraph;
 }) {
-  const { nodes, edges } = toFlow(graph);
+  const m = useMessages();
+  const { nodes, edges } = toFlow(graph, m);
 
   return (
     <section aria-labelledby="mastery-heading">
       <header className="mb-4">
-        <Eyebrow>Knowledge map</Eyebrow>
+        <Eyebrow>{t(m, "prep.graphEyebrow")}</Eyebrow>
         <h2 id="mastery-heading" className="mt-2 font-serif text-2xl text-ink">
-          Mastery graph
+          {t(m, "prep.graphTitle")}
         </h2>
         <p className="mt-1 text-[14px] leading-relaxed text-muted">
-          Competencies and their prerequisites, colored by where you stand.
+          {t(m, "prep.graphBody")}
         </p>
       </header>
 
       <div
         className="h-[420px] w-full overflow-hidden rounded-card border border-line bg-panel"
         role="img"
-        aria-label="Prerequisite graph of competencies colored by mastery state"
+        aria-label={t(m, "prep.graphAria")}
       >
         <ReactFlow
           nodes={nodes}
@@ -156,7 +164,7 @@ export function MasteryGraphView({
 
       {/* Legend */}
       <div className="mt-3 flex flex-wrap gap-3">
-        {(Object.keys(MASTERY_LABEL) as MasteryState[]).map((s) => {
+        {MASTERY_STATES.map((s) => {
           const c = MASTERY_COLORS[s];
           return (
             <span
@@ -168,7 +176,7 @@ export function MasteryGraphView({
                 style={{ backgroundColor: c.bg, borderColor: c.fg }}
                 aria-hidden
               />
-              {MASTERY_LABEL[s]}
+              {masteryLabel(m, s)}
             </span>
           );
         })}

@@ -1,5 +1,7 @@
 import type { ScoreCard } from "@deepinterview/shared";
 import { cn } from "@/lib/cn";
+import { t, type Dictionary } from "@/lib/i18n";
+import { getServerMessages } from "@/lib/i18n/server";
 import { Eyebrow } from "@/components/ui/eyebrow";
 
 /** Find a competency score by a case-insensitive substring match. */
@@ -8,11 +10,11 @@ function pick(scores: ScoreCard["competency_scores"], needle: string) {
   return scores.find((c) => c.competency.toLowerCase().includes(n));
 }
 
-function verdict(score: number): string {
-  if (score >= 4.25) return "Interview-ready";
-  if (score >= 3.25) return "On track";
-  if (score >= 2) return "Needs work";
-  return "Early";
+function verdict(m: Dictionary, score: number): string {
+  if (score >= 4.25) return t(m, "report.verdictReady");
+  if (score >= 3.25) return t(m, "report.verdictOnTrack");
+  if (score >= 2) return t(m, "report.verdictNeedsWork");
+  return t(m, "report.verdictEarly");
 }
 
 type Metric = {
@@ -28,7 +30,8 @@ type Metric = {
  * top-metric cards on the right (Communication, Technical depth, STAR, Filler
  * words). Server component — pure render off the parsed ScoreCard.
  */
-export function ScoreBento({ scorecard }: { scorecard: ScoreCard }) {
+export async function ScoreBento({ scorecard }: { scorecard: ScoreCard }) {
+  const m = await getServerMessages();
   const cs = scorecard.competency_scores;
   const lr = scorecard.language_report;
 
@@ -38,27 +41,27 @@ export function ScoreBento({ scorecard }: { scorecard: ScoreCard }) {
 
   const metrics: Metric[] = [
     {
-      label: "Communication",
+      label: t(m, "report.mComm"),
       value: comm ? comm.score.toFixed(1) : "—",
-      sub: comm ? `${comm.level} · /5` : "no signal",
+      sub: comm ? `${comm.level} · /5` : t(m, "report.noSignal"),
       fill: comm ? comm.score : null,
     },
     {
-      label: "Technical Depth",
+      label: t(m, "report.mTech"),
       value: tech ? tech.score.toFixed(1) : "—",
-      sub: tech ? `${tech.level} · /5` : "no signal",
+      sub: tech ? `${tech.level} · /5` : t(m, "report.noSignal"),
       fill: tech ? tech.score : null,
     },
     {
-      label: "STAR Structure",
+      label: t(m, "report.mStar"),
       value: star ? star.score.toFixed(1) : "—",
-      sub: star ? `${star.level} · /5` : "no signal",
+      sub: star ? `${star.level} · /5` : t(m, "report.noSignal"),
       fill: star ? star.score : null,
     },
     {
-      label: "Filler Words",
+      label: t(m, "report.mFiller"),
       value: String(lr.filler_word_count),
-      sub: "total · aim < 10",
+      sub: t(m, "report.fillerSub"),
       fill: null,
     },
   ];
@@ -67,7 +70,7 @@ export function ScoreBento({ scorecard }: { scorecard: ScoreCard }) {
     <div className="grid gap-4 md:grid-cols-3">
       {/* Hero */}
       <div className="md:row-span-1 flex flex-col justify-between rounded-card border border-line bg-panel p-6 shadow-[0_1px_0_rgba(0,0,0,0.02),0_24px_48px_-28px_rgba(20,20,30,0.12)]">
-        <Eyebrow>Overall</Eyebrow>
+        <Eyebrow>{t(m, "report.overall")}</Eyebrow>
         <div className="mt-4 flex items-baseline gap-1">
           <span className="font-serif text-[64px] leading-none text-ink">
             {scorecard.overall_score.toFixed(1)}
@@ -75,7 +78,7 @@ export function ScoreBento({ scorecard }: { scorecard: ScoreCard }) {
           <span className="font-serif text-2xl text-faint">/5</span>
         </div>
         <p className="mt-3 text-sm text-muted">
-          {verdict(scorecard.overall_score)}
+          {verdict(m, scorecard.overall_score)}
         </p>
       </div>
 

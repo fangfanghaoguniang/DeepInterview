@@ -60,13 +60,14 @@ async def _score_question(
     question: PlannedQuestion,
     answer: AnswerRecord,
     deps: Deps,
+    language: str = "en",
 ) -> CompetencyScore:
     """Score a single answered question, forcing competency + deriving level.
 
     Unanswered questions never reach here — ``evaluate`` skips them (a
     competency we never probed must not read as weak; see its docstring).
     """
-    system, user = evaluate_answer_prompts(question, answer.transcript)
+    system, user = evaluate_answer_prompts(question, answer.transcript, language)
     raw = await deps.llm.complete_json(system=system, user=user, schema=CompetencyScore)
 
     score = _clamp_score(raw.score)
@@ -138,7 +139,9 @@ async def evaluate(ctx: InterviewContext, deps: Deps) -> list[CompetencyScore]:
     async def _score_one(question: PlannedQuestion, answer: AnswerRecord) -> CompetencyScore | None:
         async with semaphore:
             try:
-                return await _score_question(question, answer, deps)
+                return await _score_question(
+                    question, answer, deps, ctx.plan.language_mode.primary
+                )
             except Exception:
                 log.exception("evaluator: scoring failed for question %s; skipping", question.id)
                 return None

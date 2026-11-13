@@ -5,6 +5,8 @@ import { buttonClasses } from "@/components/ui/button";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { StatusChip } from "@/components/prep/status-chip";
 import { SAMPLE_STUDY_PLAN, type StudyModule } from "@/lib/sample-mastery";
+import { t } from "@/lib/i18n";
+import { getServerMessages } from "@/lib/i18n/server";
 
 /**
  * The gap → path view: an ordered list of study modules built from the last
@@ -12,7 +14,7 @@ import { SAMPLE_STUDY_PLAN, type StudyModule } from "@/lib/sample-mastery";
  * module is a card with its competency, mastery chip, "why it's here", and two
  * CTAs ("Start" to study, "Practice in a mock" to loop back into an interview).
  */
-export function StudyPlan({
+export async function StudyPlan({
   modules = SAMPLE_STUDY_PLAN,
   weakAreas,
 }: {
@@ -20,28 +22,29 @@ export function StudyPlan({
   /** Weak competencies from the last interview, for the header tie-in. */
   weakAreas?: string[];
 }) {
+  const msgs = await getServerMessages();
   const totalMin = modules.reduce((sum, m) => sum + m.est_min, 0);
-  const gaps = weakAreas?.length ? weakAreas : ["your weak areas"];
+  const gaps = weakAreas?.length ? weakAreas : [t(msgs, "prep.yourWeakAreas")];
 
   return (
     <section aria-labelledby="study-plan-heading">
       <header className="mb-4">
-        <Eyebrow>Gap → study path</Eyebrow>
+        <Eyebrow>{t(msgs, "prep.eyebrow")}</Eyebrow>
         <h2
           id="study-plan-heading"
           className="mt-2 font-serif text-2xl text-ink"
         >
-          Your study plan
+          {t(msgs, "prep.title")}
         </h2>
         <p className="mt-1 text-[14px] leading-relaxed text-muted">
-          Built from your last interview&apos;s weak areas
+          {t(msgs, "prep.builtFrom")}
           {weakAreas?.length ? (
             <>
               {" — "}
               <span className="text-ink-soft">{gaps.join(", ")}</span>
             </>
           ) : null}
-          . {modules.length} modules · about {totalMin} min.
+          . {t(msgs, "prep.planSummary").replace("{n}", String(modules.length)).replace("{min}", String(totalMin))}
         </p>
       </header>
 
@@ -71,7 +74,7 @@ export function StudyPlan({
                     <span>{m.competency}</span>
                     <span className="inline-flex items-center gap-1">
                       <Clock className="h-3 w-3" aria-hidden />
-                      {m.est_min} min
+                      {m.est_min} {t(msgs, "prep.minutesUnit")}
                     </span>
                   </div>
                 </div>
@@ -80,17 +83,17 @@ export function StudyPlan({
                   <Link
                     href={`/prep?module=${m.id}`}
                     className={buttonClasses({ size: "sm" })}
-                    aria-label={`Start module: ${m.title}`}
+                    aria-label={t(msgs, "prep.ariaStartModule").replace("{title}", m.title)}
                   >
-                    Start
+                    {t(msgs, "prep.start")}
                     <ArrowRight className="h-3.5 w-3.5" aria-hidden />
                   </Link>
                   <Link
                     href={`/setup?focus=${encodeURIComponent(m.competency)}`}
                     className={buttonClasses({ size: "sm", variant: "out" })}
-                    aria-label={`Practice ${m.competency} in a mock interview`}
+                    aria-label={t(msgs, "prep.ariaPractice").replace("{skill}", m.competency)}
                   >
-                    Practice in a mock
+                    {t(msgs, "prep.practiceInMock")}
                   </Link>
                 </div>
               </CardContent>

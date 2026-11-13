@@ -1,4 +1,8 @@
+"use client";
+
 import { cn } from "@/lib/cn";
+import { t, type Dictionary } from "@/lib/i18n";
+import { useMessages } from "@/lib/i18n/client";
 import type { MasteryState } from "@/lib/sample-mastery";
 
 /**
@@ -16,6 +20,28 @@ export const MASTERY_LABEL: Record<MasteryState, string> = {
   shaky: "Shaky",
   mastered: "Mastered",
 };
+
+/** Stable iteration order for legends/labels (replaces Object.keys on the map). */
+export const MASTERY_STATES: readonly MasteryState[] = [
+  "unseen",
+  "learning",
+  "shaky",
+  "mastered",
+];
+
+/** Localized label for a mastery state (dictionary-backed). */
+export function masteryLabel(m: Dictionary, state: MasteryState): string {
+  switch (state) {
+    case "unseen":
+      return t(m, "prep.masteryUnseen");
+    case "learning":
+      return t(m, "prep.masteryLearning");
+    case "shaky":
+      return t(m, "prep.masteryShaky");
+    case "mastered":
+      return t(m, "prep.masteryMastered");
+  }
+}
 
 /** Token/hex pairs for the four states, so node + chip stay in sync. */
 export const MASTERY_COLORS: Record<
@@ -35,6 +61,7 @@ export function StatusChip({
   state: MasteryState;
   className?: string;
 }) {
+  const m = useMessages();
   const c = MASTERY_COLORS[state];
   return (
     <span
@@ -50,7 +77,7 @@ export function StatusChip({
         style={{ backgroundColor: c.fg }}
         aria-hidden
       />
-      {MASTERY_LABEL[state]}
+      {masteryLabel(m, state)}
     </span>
   );
 }

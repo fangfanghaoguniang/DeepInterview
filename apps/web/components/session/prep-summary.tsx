@@ -24,6 +24,8 @@ import {
   type ClientSessionView,
 } from "@/lib/session";
 import { cn } from "@/lib/cn";
+import { t, type Dictionary } from "@/lib/i18n";
+import { useMessages } from "@/lib/i18n/client";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -44,16 +46,25 @@ function isTerminal(status: ClientSessionView["status"]): boolean {
 }
 
 /** Header badge label per status (exhaustive, incl. client-side terminals). */
-const STATUS_BADGE: Record<ClientSessionView["status"], string> = {
-  prep: "Preparing",
-  ready: "Ready",
-  rejected: "Needs input",
-  error: "Error",
-  complete: "Complete",
-  no_answers: "Complete",
-  not_found: "Not found",
-  stalled: "Stalled",
-};
+function statusBadge(m: Dictionary, status: ClientSessionView["status"]): string {
+  switch (status) {
+    case "prep":
+      return t(m, "session.preparing");
+    case "ready":
+      return t(m, "session.ready");
+    case "rejected":
+      return t(m, "session.needsInput");
+    case "error":
+      return t(m, "session.error");
+    case "complete":
+    case "no_answers":
+      return t(m, "session.complete");
+    case "not_found":
+      return t(m, "session.notFound");
+    case "stalled":
+      return t(m, "session.stalled");
+  }
+}
 
 export function PrepSummary({
   sessionId,
@@ -63,6 +74,7 @@ export function PrepSummary({
   persona: string | null;
 }) {
   const router = useRouter();
+  const m = useMessages();
   const [view, setView] = useState<ClientSessionView | null>(null);
   // A nonce we bump to force a fresh poll cycle (used by the error Retry).
   const [retryKey, setRetryKey] = useState(0);
@@ -108,7 +120,7 @@ export function PrepSummary({
     <main className="mx-auto max-w-[920px] px-6 py-12">
       <header className="flex items-center justify-between">
         <Eyebrow>DeepInterview</Eyebrow>
-        <Badge variant="outline">{STATUS_BADGE[status]}</Badge>
+        <Badge variant="outline">{statusBadge(m, status)}</Badge>
       </header>
 
       {status === "prep" && (
@@ -140,9 +152,9 @@ export function PrepSummary({
       {/* Polling deadline passed without a terminal status — honest stall. */}
       {status === "stalled" && (
         <ErrorView
-          eyebrow="Taking too long"
-          title="Prep is taking longer than it should"
-          description="We waited several minutes without hearing back. Retry to keep waiting, or head back to setup and start fresh."
+          eyebrow={t(m, "session.stalledEyebrow")}
+          title={t(m, "session.stalledTitle")}
+          description={t(m, "session.stalledBody")}
           onRetry={onRetry}
           onBackToSetup={goSetup}
         />
@@ -151,9 +163,9 @@ export function PrepSummary({
       {/* Repeated 404s — this session genuinely doesn't exist. */}
       {status === "not_found" && (
         <ErrorView
-          eyebrow="Session not found"
-          title="We couldn't find this session"
-          description="It may have expired or the link is wrong. Head back to setup to start a new one."
+          eyebrow={t(m, "session.nfEyebrow")}
+          title={t(m, "session.nfTitle")}
+          description={t(m, "session.nfBody")}
           onBackToSetup={goSetup}
         />
       )}
@@ -167,6 +179,7 @@ export function PrepSummary({
 
 /** Notices shown above prep / bento — input-quality warnings from the agents. */
 function WarningBanner({ warnings }: { warnings: string[] }) {
+  const m = useMessages();
   if (warnings.length === 0) return null;
   return (
     <div className="mt-6 flex flex-col gap-2">
@@ -179,12 +192,21 @@ function WarningBanner({ warnings }: { warnings: string[] }) {
             className="mt-0.5 h-4 w-4 shrink-0 text-accent"
             aria-hidden
           />
-          <span>Heads up: {w}</span>
+          <span>{t(m, "session.headsUp")} {w}</span>
         </p>
       ))}
     </div>
   );
 }
+
+/** PREP_STEPS key → dictionary sub-key under `session.prepStep*`. */
+const PREP_STEP_LABEL_KEY: Record<string, string> = {
+  cv_analysis: "Cv",
+  jd_analysis: "Jd",
+  company_research: "Company",
+  gap_matching: "Fit",
+  question_planner: "Plan",
+};
 
 function PrepView({
   progress,
@@ -193,20 +215,26 @@ function PrepView({
   progress: string[];
   warnings: string[];
 }) {
+  const m = useMessages();
   const done = new Set(progress);
   const completed = PREP_STEPS.filter((s) => done.has(s.key)).length;
   const total = PREP_STEPS.length;
   // First step that isn't done yet — the one actively running.
   const active = PREP_STEPS.find((s) => !done.has(s.key));
 
+  const stepLabel = (step: (typeof PREP_STEPS)[number]) =>
+    t(m, `session.prepStep${PREP_STEP_LABEL_KEY[step.key] ?? ""}`).replace(
+      "{company}",
+      t(m, "session.theCompany"),
+    );
+
   return (
     <div className="mt-8">
       <h1 className="serif text-3xl text-ink sm:text-4xl">
-        Preparing your interview
+        {t(m, "session.prepTitle")}
       </h1>
       <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-muted">
-        Our agents are reading your materials and researching the role. This
-        takes a moment — hang tight.
+        {t(m, "session.prepBody")}
       </p>
 
       <WarningBanner warnings={warnings} />
@@ -215,7 +243,7 @@ function PrepView({
       <div className="mt-8">
         <div className="flex items-center justify-between text-[12px] text-faint">
           <span className="font-mono uppercase tracking-[0.12em]">
-            {completed} of {total}
+            {t(m, "session.stepsOf").replace("{a}", String(completed)).replace("{b}", String(total))}
           </span>
           <span>{Math.round((completed / total) * 100)}%</span>
         </div>
@@ -233,7 +261,7 @@ function PrepView({
           {PREP_STEPS.map((step) => {
             const isDone = done.has(step.key);
             const isActive = !isDone && active?.key === step.key;
-            const label = step.label.replace("{company}", "the company");
+            const label = stepLabel(step);
             return (
               <div
                 key={step.key}
@@ -270,7 +298,7 @@ function PrepView({
                 </span>
                 {isDone && (
                   <span className="ml-auto text-[11px] font-mono uppercase tracking-[0.1em] text-ok">
-                    done
+                    {t(m, "session.stepDone")}
                   </span>
                 )}
               </div>
@@ -342,21 +370,28 @@ function BentoCard({
 }
 
 function CandidateCard({ c }: { c: CandidateProfile }) {
+  const m = useMessages();
   return (
-    <BentoCard eyebrow="Candidate" title={c.name || "You"}>
+    <BentoCard
+      eyebrow={t(m, "session.candidate")}
+      title={c.name || t(m, "session.you")}
+    >
       <p className="text-[14px] leading-relaxed text-ink-soft">{c.headline}</p>
       <div className="flex flex-wrap items-center gap-2 text-[12px] text-muted">
         <Badge variant="default" className="font-sans capitalize">
           {c.seniority}
         </Badge>
         <span>
-          {c.years_experience} {c.years_experience === 1 ? "year" : "years"}{" "}
-          experience
+          {c.years_experience}{' '}
+          {c.years_experience === 1
+            ? t(m, "session.yearUnit")
+            : t(m, "session.yearsUnit")}{" "}
+          {t(m, "session.experienceWord")}
         </span>
       </div>
       <div className="mt-1">
         <p className="mb-1.5 text-[11px] font-mono uppercase tracking-[0.1em] text-faint">
-          Top skills
+          {t(m, "session.topSkills")}
         </p>
         <Chips items={c.skills} max={10} />
       </div>
@@ -365,16 +400,17 @@ function CandidateCard({ c }: { c: CandidateProfile }) {
 }
 
 function RoleCard({ j }: { j: JobSpec }) {
+  const m = useMessages();
   return (
     <BentoCard
-      eyebrow="The role"
-      title={j.title || "Target role"}
+      eyebrow={t(m, "session.theRole")}
+      title={j.title || t(m, "session.targetRole")}
       className="md:col-span-2"
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <p className="mb-1.5 text-[11px] font-mono uppercase tracking-[0.1em] text-faint">
-            Must have
+            {t(m, "session.mustHave")}
           </p>
           {j.must_have.length > 0 ? (
             <ul className="flex flex-col gap-1">
@@ -397,7 +433,7 @@ function RoleCard({ j }: { j: JobSpec }) {
         </div>
         <div>
           <p className="mb-1.5 text-[11px] font-mono uppercase tracking-[0.1em] text-faint">
-            Nice to have
+            {t(m, "session.niceToHave")}
           </p>
           {j.nice_to_have.length > 0 ? (
             <ul className="flex flex-col gap-1">
@@ -422,7 +458,7 @@ function RoleCard({ j }: { j: JobSpec }) {
       {j.tech_stack.length > 0 && (
         <div className="mt-1">
           <p className="mb-1.5 text-[11px] font-mono uppercase tracking-[0.1em] text-faint">
-            Tech stack
+            {t(m, "session.techStack")}
           </p>
           <Chips items={j.tech_stack} max={12} />
         </div>
@@ -432,11 +468,12 @@ function RoleCard({ j }: { j: JobSpec }) {
 }
 
 function CompanyCard({ co }: { co: CompanyIntel }) {
+  const m = useMessages();
   const hasIntel = Boolean(co.summary) || co.citations.length > 0;
   return (
     <BentoCard
-      eyebrow="Company intel"
-      title={co.name || "Company"}
+      eyebrow={t(m, "session.companyIntel")}
+      title={co.name || t(m, "session.companyFallback")}
       className="md:col-span-2"
     >
       {hasIntel ? (
@@ -452,7 +489,7 @@ function CompanyCard({ co }: { co: CompanyIntel }) {
           {co.citations.length > 0 && (
             <div className="mt-1">
               <p className="mb-1.5 text-[11px] font-mono uppercase tracking-[0.1em] text-faint">
-                Sources
+                {t(m, "session.sources")}
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {co.citations.slice(0, 6).map((cite, i) => (
@@ -477,8 +514,7 @@ function CompanyCard({ co }: { co: CompanyIntel }) {
         </>
       ) : (
         <p className="text-[13px] leading-relaxed text-muted">
-          Limited public info on this company — we&apos;ll keep the interview
-          grounded in the role and your background instead.
+          {t(m, "session.limitedIntel")}
         </p>
       )}
     </BentoCard>
@@ -486,10 +522,11 @@ function CompanyCard({ co }: { co: CompanyIntel }) {
 }
 
 function FitCard({ g }: { g: GapAnalysis }) {
+  const m = useMessages();
   return (
     <BentoCard
-      eyebrow="Your fit"
-      title="Where you match"
+      eyebrow={t(m, "session.yourFit")}
+      title={t(m, "session.whereYouMatch")}
       className="md:col-span-2"
     >
       {g.summary && (
@@ -498,7 +535,7 @@ function FitCard({ g }: { g: GapAnalysis }) {
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <p className="mb-1.5 text-[11px] font-mono uppercase tracking-[0.1em] text-ok">
-            Strengths
+            {t(m, "session.strengths")}
           </p>
           {g.strengths.length > 0 ? (
             <ul className="flex flex-col gap-1">
@@ -521,7 +558,7 @@ function FitCard({ g }: { g: GapAnalysis }) {
         </div>
         <div>
           <p className="mb-1.5 text-[11px] font-mono uppercase tracking-[0.1em] text-accent">
-            Gaps to probe
+            {t(m, "session.gapsToProbe")}
           </p>
           {g.gaps.length > 0 || g.probe_targets.length > 0 ? (
             <ul className="flex flex-col gap-1">
@@ -546,7 +583,7 @@ function FitCard({ g }: { g: GapAnalysis }) {
       {g.matched_skills.length > 0 && (
         <div className="mt-1">
           <p className="mb-1.5 text-[11px] font-mono uppercase tracking-[0.1em] text-faint">
-            Matched skills
+            {t(m, "session.matchedSkills")}
           </p>
           <Chips items={g.matched_skills} max={10} variant="ok" />
         </div>
@@ -555,15 +592,17 @@ function FitCard({ g }: { g: GapAnalysis }) {
   );
 }
 
-const SECTION_LABELS: Record<string, string> = {
-  intro: "Intro",
-  behavioral: "Behavioral",
-  technical: "Technical",
-  coding: "Coding",
-  wrap: "Wrap-up",
+/** Question-plan section keys → dictionary sub-keys under `session.sec*`. */
+const SECTION_LABEL_KEY: Record<string, string> = {
+  intro: "session.secIntro",
+  behavioral: "session.secBehavioral",
+  technical: "session.secTechnical",
+  coding: "session.secCoding",
+  wrap: "session.secWrap",
 };
 
 function PlanCard({ p }: { p: QuestionPlan }) {
+  const m = useMessages();
   // Difficulty spread (1–5-ish). Build buckets without unchecked indexing.
   const counts = new Map<number, number>();
   for (const q of p.questions) {
@@ -574,13 +613,15 @@ function PlanCard({ p }: { p: QuestionPlan }) {
 
   return (
     <BentoCard
-      eyebrow="Interview plan"
-      title={`${p.questions.length} questions · ${p.time_budget_min} min`}
+      eyebrow={t(m, "session.interviewPlan")}
+      title={t(m, "session.planCount")
+        .replace("{n}", String(p.questions.length))
+        .replace("{min}", String(p.time_budget_min))}
       className="md:col-span-2"
     >
       <div>
         <p className="mb-1.5 text-[11px] font-mono uppercase tracking-[0.1em] text-faint">
-          Flow
+          {t(m, "session.flow")}
         </p>
         <div className="flex flex-wrap gap-1.5">
           {p.sections_order.map((s, i) => (
@@ -588,7 +629,9 @@ function PlanCard({ p }: { p: QuestionPlan }) {
               key={`${s}-${i}`}
               className="inline-flex items-center rounded-full border border-line bg-paper px-2.5 py-1 text-[12px] text-ink-soft"
             >
-              {SECTION_LABELS[s] ?? s}
+              {SECTION_LABEL_KEY[s]
+                ? t(m, SECTION_LABEL_KEY[s])
+                : s}
             </span>
           ))}
         </div>
@@ -596,7 +639,7 @@ function PlanCard({ p }: { p: QuestionPlan }) {
       {levels.length > 0 && (
         <div className="mt-1">
           <p className="mb-1.5 text-[11px] font-mono uppercase tracking-[0.1em] text-faint">
-            Difficulty spread
+            {t(m, "session.difficultySpread")}
           </p>
           <div className="flex items-end gap-2">
             {levels.map((lvl) => {
@@ -637,16 +680,22 @@ function ReadyView({
   onStart: () => void;
   onBackToSetup: () => void;
 }) {
+  const m = useMessages();
   return (
     <div className="mt-8">
-      <h1 className="serif text-3xl text-ink sm:text-4xl">What we found</h1>
+      <h1 className="serif text-3xl text-ink sm:text-4xl">
+        {t(m, "session.whatWeFound")}
+      </h1>
       <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-muted">
-        Here&apos;s how we&apos;ll tailor your interview for{" "}
-        <span className="text-ink-soft">{context.job.title || "the role"}</span>
+        {t(m, "session.tailoringLead")}{" "}
+        <span className="text-ink-soft">
+          {context.job.title || t(m, "session.theRoleFallback")}
+        </span>
         {context.job.company_name ? (
           <>
             {" "}
-            at <span className="text-ink-soft">{context.job.company_name}</span>
+            {t(m, "session.tailoringAt")}{" "}
+            <span className="text-ink-soft">{context.job.company_name}</span>
           </>
         ) : null}
         .
@@ -666,11 +715,11 @@ function ReadyView({
       {/* CTA */}
       <div className="mt-8 flex flex-wrap items-center gap-3">
         <Button size="lg" onClick={onStart}>
-          Start interview
+          {t(m, "session.startInterview")}
           <ArrowRight className="h-4 w-4" aria-hidden />
         </Button>
         <Button variant="out" size="lg" onClick={onBackToSetup}>
-          Back to setup
+          {t(m, "session.backToSetup")}
         </Button>
       </div>
     </div>
@@ -688,18 +737,16 @@ function RejectedView({
   warnings: string[];
   onBackToSetup: () => void;
 }) {
+  const m = useMessages();
   return (
     <div className="mx-auto mt-10 max-w-[560px]">
       <Card>
         <CardHeader>
-          <Eyebrow>Let&apos;s try that again</Eyebrow>
+          <Eyebrow>{t(m, "session.rejectedEyebrow")}</Eyebrow>
           <CardTitle className="serif text-2xl">
-            We couldn&apos;t read enough to build your interview
+            {t(m, "session.rejectedTitle")}
           </CardTitle>
-          <CardDescription>
-            The CV or job description came through too thin or unclear for us to
-            tailor good questions. A quick fix and you&apos;re back on track.
-          </CardDescription>
+          <CardDescription>{t(m, "session.rejectedBody")}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5 pb-6">
           {warnings.length > 0 && (
@@ -721,20 +768,17 @@ function RejectedView({
 
           <div className="rounded-[10px] border border-line bg-paper px-4 py-3">
             <p className="mb-1.5 text-[11px] font-mono uppercase tracking-[0.1em] text-faint">
-              Tips
+              {t(m, "session.tips")}
             </p>
             <ul className="flex flex-col gap-1.5 text-[13px] leading-relaxed text-muted">
-              <li>· Paste the full job posting text, not just a link.</li>
-              <li>
-                · Paste your real CV text (or upload the PDF/DOCX), not a
-                placeholder.
-              </li>
-              <li>· Include the company name so we can research it.</li>
+              <li>{t(m, "session.tip1")}</li>
+              <li>{t(m, "session.tip2")}</li>
+              <li>{t(m, "session.tip3")}</li>
             </ul>
           </div>
 
           <Button size="lg" className="self-start" onClick={onBackToSetup}>
-            Back to setup
+            {t(m, "session.backToSetup")}
           </Button>
         </CardContent>
       </Card>
@@ -747,9 +791,9 @@ function RejectedView({
 /* ------------------------------------------------------------------ */
 
 function ErrorView({
-  eyebrow = "Something went wrong",
-  title = "We hit a snag preparing this",
-  description = "This is usually temporary. Retry, or head back to setup to start fresh.",
+  eyebrow,
+  title,
+  description,
   onRetry,
   onBackToSetup,
 }: {
@@ -760,23 +804,28 @@ function ErrorView({
   onRetry?: () => void;
   onBackToSetup: () => void;
 }) {
+  const m = useMessages();
   return (
     <div className="mx-auto mt-10 max-w-[520px]">
       <Card>
         <CardHeader>
-          <Eyebrow>{eyebrow}</Eyebrow>
-          <CardTitle className="serif text-2xl">{title}</CardTitle>
-          <CardDescription>{description}</CardDescription>
+          <Eyebrow>{eyebrow ?? t(m, "session.errEyebrow")}</Eyebrow>
+          <CardTitle className="serif text-2xl">
+            {title ?? t(m, "session.errTitle")}
+          </CardTitle>
+          <CardDescription>
+            {description ?? t(m, "session.errBody")}
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3 pb-6">
           {onRetry && (
             <Button size="lg" onClick={onRetry}>
               <RotateCw className="h-4 w-4" aria-hidden />
-              Retry
+              {t(m, "session.retry")}
             </Button>
           )}
           <Button variant="out" size="lg" onClick={onBackToSetup}>
-            Back to setup
+            {t(m, "session.backToSetup")}
           </Button>
         </CardContent>
       </Card>

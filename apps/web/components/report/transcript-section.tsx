@@ -1,3 +1,5 @@
+import { t } from "@/lib/i18n";
+import { getServerMessages } from "@/lib/i18n/server";
 import {
   Card,
   CardDescription,
@@ -17,40 +19,43 @@ export interface TranscriptTurn {
  * transcript. The "▶" is a visual affordance only — no real audio yet (recorded
  * playback lands later). Server component.
  */
-export function TranscriptSection({ turns }: { turns: TranscriptTurn[] }) {
+export async function TranscriptSection({
+  turns,
+}: {
+  turns: TranscriptTurn[];
+}) {
+  const m = await getServerMessages();
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Transcript</CardTitle>
-        <CardDescription>
-          Replay each turn. Audio playback arrives with recorded sessions.
-        </CardDescription>
+        <CardTitle>{t(m, "report.transcript")}</CardTitle>
+        <CardDescription>{t(m, "report.transcriptDesc")}</CardDescription>
       </CardHeader>
       <ol className="divide-y divide-line px-6 pb-6">
-        {turns.map((t, i) => (
-          <li key={t.question_id} className="py-4 first:pt-0">
+        {turns.map((turn, i) => (
+          <li key={turn.question_id} className="py-4 first:pt-0">
             <div className="flex items-start gap-3">
               <span
                 aria-hidden
                 className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-line bg-paper text-[11px] text-accent"
-                title="Playback (coming soon)"
+                title={t(m, "report.playbackSoon")}
               >
                 ▶
               </span>
               <div className="min-w-0 flex-1">
                 <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-faint">
-                  Q{i + 1}
+                  {t(m, "report.qLabel").replace("{n}", String(i + 1))}
                 </p>
                 <p className="mt-0.5 text-[14px] font-medium leading-snug text-ink">
-                  {t.question}
+                  {turn.question}
                 </p>
-                {t.transcript ? (
+                {turn.transcript ? (
                   <p className="mt-2 text-sm leading-relaxed text-ink-soft">
-                    {t.transcript}
+                    {turn.transcript}
                   </p>
                 ) : (
                   <p className="mt-2 text-sm italic text-faint">
-                    Not reached in this session.
+                    {t(m, "report.notReached")}
                   </p>
                 )}
               </div>

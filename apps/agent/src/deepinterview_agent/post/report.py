@@ -107,7 +107,9 @@ async def _model_answers(ctx: InterviewContext, deps: Deps) -> list[ModelAnswer]
     async def _draft(question, transcript):
         async with semaphore:
             try:
-                system, user = model_answer_prompts(question, ctx.candidate, transcript)
+                system, user = model_answer_prompts(
+                    question, ctx.candidate, transcript, ctx.plan.language_mode.primary
+                )
                 text = await deps.llm.complete_text(system=system, user=user)
                 return ModelAnswer(question_id=question.id, answer=text)
             except Exception:
