@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { cookies } from "next/headers";
 import { Fraunces, Inter, JetBrains_Mono } from "next/font/google";
+import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n";
 import "./globals.css";
 
 const inter = Inter({
@@ -59,7 +60,8 @@ export default async function RootLayout({
   // Screen readers pick pronunciation from `lang` — resolve it from the same
   // `locale` cookie the LanguageToggle writes (EN default).
   const store = await cookies();
-  const lang = store.get("locale")?.value === "vi" ? "vi" : "en";
+  const cookieLocale = store.get("locale")?.value;
+  const lang = isLocale(cookieLocale) ? cookieLocale : DEFAULT_LOCALE;
   return (
     <html
       lang={lang}

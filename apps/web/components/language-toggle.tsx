@@ -3,11 +3,13 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import type { Locale } from "@/lib/i18n";
+import { isLocale } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 
 const OPTIONS: { value: Locale; label: string }[] = [
   { value: "en", label: "EN" },
   { value: "vi", label: "VI" },
+  { value: "zh", label: "中文" },
 ];
 
 function readLocaleCookie(): Locale {
@@ -16,7 +18,7 @@ function readLocaleCookie(): Locale {
     .split("; ")
     .find((c) => c.startsWith("locale="));
   const value = match?.split("=")[1];
-  return value === "vi" ? "vi" : "en";
+  return isLocale(value) ? value : "en";
 }
 
 /**

@@ -742,9 +742,17 @@ def test_build_tts_kokoro_uses_the_audio_branch_not_sse() -> None:
     assert tts.capabilities.streaming is True
 
 
-def test_build_tts_kokoro_coerces_a_model_that_would_be_silent() -> None:
-    tts = worker.build_tts(_local_settings(tts_provider="kokoro", kokoro_model="kokoro"), "en")
-    assert tts._wrapped_tts._opts.model == "tts-1"
+def test_build_tts_kokoro_registers_a_third_party_model_id() -> None:
+    """Third-party OpenAI-compatible TTS rejects 'tts-1' with 400 (SiliconFlow
+    checks the id against its model table), so the real id must be sent as-is
+    and registered into the plugin's raw-audio whitelist — not coerced."""
+    pytest.importorskip("livekit.plugins.openai")
+    from livekit.plugins.openai.tts import AUDIO_STREAM_MODELS
+
+    model = "FunAudioLLM/CosyVoice2-0.5B"
+    tts = worker.build_tts(_local_settings(tts_provider="kokoro", kokoro_model=model), "en")
+    assert tts._wrapped_tts._opts.model == model
+    assert model in AUDIO_STREAM_MODELS
 
 
 def test_build_tts_kokoro_picks_the_voice_from_the_language() -> None:

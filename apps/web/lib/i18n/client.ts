@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getMessages, type Dictionary, type Locale } from "@/lib/i18n";
+import {
+  getMessages,
+  isLocale,
+  type Dictionary,
+  type Locale,
+} from "@/lib/i18n";
 
 /**
  * Client-side message resolution. `getMessages` keeps EN as the default pack;
@@ -17,7 +22,8 @@ function readLocaleCookie(): Locale {
   const match = document.cookie
     .split("; ")
     .find((c) => c.startsWith("locale="));
-  return match?.split("=")[1] === "vi" ? "vi" : "en";
+  const value = match?.split("=")[1];
+  return isLocale(value) ? value : "en";
 }
 
 /**

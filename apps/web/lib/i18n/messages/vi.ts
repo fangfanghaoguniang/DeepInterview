@@ -115,6 +115,8 @@ export const vi: Localized<Messages> = {
     controls: "Điều khiển phỏng vấn",
     mute: "Tắt micro",
     unmute: "Bật micro",
+    startAnswer: "Bắt đầu trả lời",
+    finishAnswer: "Tôi nói xong",
     enableAudio: "Bật âm thanh phỏng vấn",
     elapsed: "Thời gian phỏng vấn đã qua",
     micUnavailable: "Không dùng được micro",

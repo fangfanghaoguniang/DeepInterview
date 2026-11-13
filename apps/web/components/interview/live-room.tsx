@@ -44,6 +44,7 @@ import {
   ConnectionState,
   DisconnectReason,
   MediaDeviceFailure,
+  Track,
 } from "livekit-client";
 import "@livekit/components-styles";
 
@@ -272,7 +273,12 @@ function LiveSession({
     connectionState === ConnectionState.Reconnecting ||
     connectionState === ConnectionState.SignalReconnecting;
 
-  const { localParticipant, isMicrophoneEnabled } = useLocalParticipant();
+  const { localParticipant, microphoneTrack } = useLocalParticipant();
+  // Whether the microphone device is published at all — independent of mute.
+  // NOTE: LiveKit's `isMicrophoneEnabled` getter means "not muted", so it must
+  // NOT gate push-to-talk: our coordinator mutes the mic by default, which would
+  // flip it false and disable the very button meant to open the mic.
+  const micAvailable = !!microphoneTrack;
   const transcriptions = useTranscriptions();
   // `disconnected` is what useVoiceAssistant reports while no agent participant
   // is in the room at all — the case the notice below explains.
@@ -283,6 +289,43 @@ function LiveSession({
   );
 
   const [ending, setEnding] = React.useState(false);
+
+  // Push-to-talk: the mic stays muted except while the candidate records an
+  // answer. `recording` is the single intent; the coordinator effect below
+  // converges the actual track mute state to it (audio flows only while
+  // recording) — which also gives half-duplex for free, since the interviewer's
+  // own voice never reaches a mic that is closed unless we open it to answer.
+  const [recording, setRecording] = React.useState(false);
+  const [recordSeconds, setRecordSeconds] = React.useState(0);
+
+  // Converge actual mic mute to the recording intent: unmuted only while
+  // recording. Re-runs when the device (re)publishes so a re-enabled mic
+  // returns to muted-by-default rather than live.
+  React.useEffect(() => {
+    const pub = localParticipant.getTrackPublication(Track.Source.Microphone);
+    if (!pub) return;
+    if (recording) {
+      if (pub.isMuted) void pub.unmute();
+    } else if (!pub.isMuted) {
+      void pub.mute();
+    }
+  }, [recording, microphoneTrack, localParticipant]);
+
+  // Live timer + safeguard: auto-submit (stop recording) after 90s so a missed
+  // "I'm done" tap can't wedge the turn open forever.
+  React.useEffect(() => {
+    if (!recording) {
+      setRecordSeconds(0);
+      return;
+    }
+    const started = Date.now();
+    const id = window.setInterval(() => {
+      const s = Math.floor((Date.now() - started) / 1000);
+      setRecordSeconds(s);
+      if (s >= 90) setRecording(false);
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [recording]);
 
   // Focus management on connect (issue #52): when the room first connects,
   // move keyboard + screen-reader focus into the transcript log — the
@@ -305,8 +348,8 @@ function LiveSession({
 
   // A publishing mic proves capture works again — clear any stale failure banner.
   React.useEffect(() => {
-    if (isMicrophoneEnabled) onMicError(null);
-  }, [isMicrophoneEnabled, onMicError]);
+    if (micAvailable) onMicError(null);
+  }, [micAvailable, onMicError]);
 
   // Typed answers bypass STT, so nothing in `transcriptions` ever carries
   // them — without a local echo the typed answer is invisible and the
@@ -353,9 +396,20 @@ function LiveSession({
     return merged;
   }, [transcriptions, typedTurns, localParticipant.identity]);
 
+  function toggleRecording() {
+    if (recording) {
+      setRecording(false);
+      return;
+    }
+    if (!connected || !micAvailable || ending) return;
+    setRecording(true);
+  }
+
   async function toggleMute() {
     try {
-      await localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
+      // Turning the device off ends any in-progress recording.
+      if (micAvailable) setRecording(false);
+      await localParticipant.setMicrophoneEnabled(!micAvailable);
       onMicError(null);
     } catch (error) {
       // getUserMedia rejection: permission denied / no device / device busy.
@@ -415,10 +469,14 @@ function LiveSession({
             className="rounded-full border border-accent bg-accent-soft px-4 py-2 text-[13px] font-medium text-accent transition-colors hover:bg-accent hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
           />
           <ControlBar
-            micEnabled={isMicrophoneEnabled}
+            micEnabled={micAvailable}
             onToggleMute={() => void toggleMute()}
             onEnd={() => void endInterview()}
             ending={ending}
+            recording={recording}
+            recordDisabled={!connected || !micAvailable || ending}
+            recordSeconds={recordSeconds}
+            onToggleRecord={toggleRecording}
           />
         </div>
       }

@@ -1,8 +1,23 @@
 import { en, type Messages } from "./messages/en";
 import { vi, type Localized } from "./messages/vi";
+import { zh } from "./messages/zh";
 
 /** Supported UI locales. English-first; more packs plug in here. */
-export type Locale = "en" | "vi";
+export type Locale = "en" | "vi" | "zh";
+
+/**
+ * All supported locales, in the order the switcher shows them. Kept next to
+ * the `Locale` union so adding a pack is one edit — the cookie readers
+ * (`language-toggle`, `client.ts`, root layout) all derive from this list
+ * instead of hard-coding `=== "vi" ? "vi" : "en"`, which silently reverted
+ * every unknown value to English and had to be updated for each new pack.
+ */
+export const LOCALES: readonly Locale[] = ["en", "vi", "zh"];
+
+/** Type guard used by cookie readers. */
+export function isLocale(value: unknown): value is Locale {
+  return typeof value === "string" && (LOCALES as readonly string[]).includes(value);
+}
 
 export const DEFAULT_LOCALE: Locale = "en";
 
@@ -17,6 +32,7 @@ export type Dictionary = Localized<Messages>;
 const dictionaries: Record<Locale, Dictionary> = {
   en,
   vi,
+  zh,
 };
 
 /** Resolve the message dictionary for a locale (defaults to English). */

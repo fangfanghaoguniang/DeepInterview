@@ -401,19 +401,22 @@ def _local_kokoro_tts(settings, language="en"):
     from livekit.plugins import openai
     from livekit.plugins.openai.tts import AUDIO_STREAM_MODELS
 
-    # Guard the silent-failure mode: a model id outside AUDIO_STREAM_MODELS
-    # sends synthesis down the plugin's SSE branch, which yields no audio and
-    # raises nothing. Never let that happen quietly.
+    # The plugin only uses the raw-audio transport for ids inside
+    # AUDIO_STREAM_MODELS; anything else silently falls into the SSE branch and
+    # yields no audio. Third-party OpenAI-compatible TTS (e.g. SiliconFlow's
+    # FunAudioLLM/CosyVoice2-0.5B) rejects the generic 'tts-1' with 400 "model
+    # does not exist", so instead of downgrading the name we register the real
+    # id into the whitelist — it is a plain module-level set read at synthesis
+    # time. kokoro-fastapi ignores the model name, so local Kokoro keeps
+    # working with any id here too.
     model = settings.kokoro_model
     if model not in AUDIO_STREAM_MODELS:
-        log.warning(
-            "build_tts: KOKORO_MODEL=%r is outside %s, which would produce SILENT "
-            "audio with no error; using 'tts-1' instead (kokoro-fastapi ignores "
-            "the model name).",
+        AUDIO_STREAM_MODELS.add(model)
+        log.info(
+            "build_tts: registered KOKORO_MODEL=%r into AUDIO_STREAM_MODELS so the "
+            "openai plugin keeps the raw-audio transport for this third-party id.",
             model,
-            sorted(AUDIO_STREAM_MODELS),
         )
-        model = "tts-1"
 
     # An explicit KOKORO_VOICE always wins; otherwise the voice is derived from
     # the session language so the accent matches the words.

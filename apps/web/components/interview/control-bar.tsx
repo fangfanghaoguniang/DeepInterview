@@ -24,6 +24,15 @@ export interface ControlBarProps {
   /** True while the end action is in flight. */
   ending?: boolean;
   className?: string;
+  /** Push-to-talk: true while the candidate's answer is being captured. */
+  recording?: boolean;
+  /** Disable the push-to-talk button (not connected / mic off / ending). */
+  recordDisabled?: boolean;
+  /** Whole seconds the current answer has been recording (live timer). */
+  recordSeconds?: number;
+  /** Start/stop recording. When omitted the push-to-talk button is not
+   *  rendered, so preview/offline shells keep their original two-control chrome. */
+  onToggleRecord?: () => void;
 }
 
 export function ControlBar({
@@ -33,6 +42,10 @@ export function ControlBar({
   disabled = false,
   ending = false,
   className,
+  recording = false,
+  recordDisabled = false,
+  recordSeconds = 0,
+  onToggleRecord,
 }: ControlBarProps) {
   const messages = useMessages();
   // Two-tap end: the first tap arms ("Tap again to end"), the second fires.
@@ -70,6 +83,45 @@ export function ControlBar({
       role="group"
       aria-label={t(messages, "interview.controls")}
     >
+      {onToggleRecord ? (
+        <button
+          type="button"
+          onClick={onToggleRecord}
+          disabled={disabled || recordDisabled}
+          aria-pressed={recording}
+          aria-label={t(
+            messages,
+            recording ? "interview.finishAnswer" : "interview.startAnswer",
+          )}
+          className={cn(
+            "inline-flex h-10 items-center gap-2 rounded-full px-4",
+            "text-[13px] font-medium",
+            "transition-colors duration-150",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-paper",
+            "disabled:opacity-40 disabled:pointer-events-none",
+            recording
+              ? "bg-accent text-white hover:bg-accent"
+              : "bg-ink text-white hover:bg-ink-soft",
+          )}
+        >
+          {recording ? (
+            <>
+              <span
+                className="h-2 w-2 animate-pulse rounded-full bg-white"
+                aria-hidden
+              />
+              <span className="tabular-nums">{recordSeconds}s</span>
+              <span>{t(messages, "interview.finishAnswer")}</span>
+            </>
+          ) : (
+            <>
+              <Mic className="h-4 w-4" aria-hidden />
+              <span>{t(messages, "interview.startAnswer")}</span>
+            </>
+          )}
+        </button>
+      ) : null}
+
       <button
         type="button"
         onClick={onToggleMute}

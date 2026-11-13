@@ -96,6 +96,8 @@ export const en = {
     controls: "Interview controls",
     mute: "Mute microphone",
     unmute: "Unmute microphone",
+    startAnswer: "Start answer",
+    finishAnswer: "I'm done",
     enableAudio: "Enable interview audio",
     elapsed: "Interview elapsed time",
     micUnavailable: "Microphone unavailable",
