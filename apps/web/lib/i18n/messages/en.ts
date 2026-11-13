@@ -333,6 +333,10 @@ export const en = {
     mStar: "STAR Structure",
     mFiller: "Filler Words",
     noSignal: "no signal",
+    levelWeak: "weak",
+    levelDeveloping: "developing",
+    levelSolid: "solid",
+    levelStrong: "strong",
     fillerSub: "total · aim < 10",
     // strengths & gaps
     growthAreas: "Growth areas",
@@ -469,6 +473,11 @@ export const en = {
     cardsAnswer: "Answer",
     cardsSchedulerNote:
       "FSRS-like scheduler (SM-2): each rating sets the next review interval.",
+    studyBanner: "Studying: {title} · {n} cards",
+    studyBannerDone: "You've finished this module's cards.",
+    endStudyFilter: "End filter",
+    noModuleCards: "No cards for this module yet.",
+    useAllCards: "Practice with the full deck",
     chatEyebrow: "AI study coach",
     chatTitle: "Ask your coach",
     chatEmpty:

@@ -75,13 +75,16 @@ def _empty_plan(summary: str) -> StudyPlan:
     return StudyPlan(modules=[], summary=summary, total_min=0)
 
 
-async def run_coach_plan(scorecard: ScoreCard, deps: Deps) -> StudyPlan:
+async def run_coach_plan(
+    scorecard: ScoreCard, deps: Deps, language: str = "en"
+) -> StudyPlan:
     """Build a ``StudyPlan`` from a scorecard's weak competencies.
 
     One module per ``weak_competencies`` entry, ordered weakest-first; the LLM
     drafts the title/rationale/est_min while ``competency`` and ``status`` are
     pinned deterministically so the plan maps cleanly back onto the loop's
-    shared competency space.
+    shared competency space. ``language`` (default "en") sets the output
+    language of the LLM-drafted free text.
     """
     weak = list(scorecard.weak_competencies)
     if not weak:
@@ -98,7 +101,7 @@ async def run_coach_plan(scorecard: ScoreCard, deps: Deps) -> StudyPlan:
         cs = score_by_comp.get(comp)
         evidence = cs.evidence if cs is not None else ""
         level = cs.level if cs is not None else "weak"
-        system, user = study_module_prompts(comp, evidence, level)
+        system, user = study_module_prompts(comp, evidence, level, language)
         draft = await _guarded(
             deps.llm.complete_json(system=system, user=user, schema=_ModuleDraft),
             label=f"module:{comp}",

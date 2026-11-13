@@ -7,6 +7,7 @@ import {
   type ScoreCard,
   type ScoreRequest,
   type ScoreResponse,
+  type Language,
   type StudyPlan,
 } from "@deepinterview/shared";
 import { serverEnv } from "@/lib/env";
@@ -49,9 +50,18 @@ export function requestScore(body: ScoreRequest): Promise<ScoreResponse> {
   return postJson("/api/score", body, (d) => ScoreResponseSchema.parse(d));
 }
 
-/** Build a Study Coach plan from a scorecard's weak competencies (server-side). */
-export function requestCoachPlan(scorecard: ScoreCard): Promise<StudyPlan> {
-  return postJson("/api/coach/plan", { scorecard }, (d) =>
-    StudyPlanSchema.parse(d),
+/**
+ * Build a Study Coach plan from a scorecard's weak competencies (server-side).
+ * `language` sets the output language of the module text; omitted → the
+ * backend's "en" default (legacy behavior).
+ */
+export function requestCoachPlan(
+  scorecard: ScoreCard,
+  language?: Language,
+): Promise<StudyPlan> {
+  return postJson(
+    "/api/coach/plan",
+    { scorecard, ...(language ? { language } : {}) },
+    (d) => StudyPlanSchema.parse(d),
   );
 }

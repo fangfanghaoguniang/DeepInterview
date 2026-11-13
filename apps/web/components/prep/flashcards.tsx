@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { RotateCcw, Check } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Eyebrow } from "@/components/ui/eyebrow";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
 import { useMessages } from "@/lib/i18n/client";
+import { selectVisibleCards, type ActiveModuleInfo } from "@/lib/prep-filter";
 import {
   newCard,
   schedule,
@@ -36,10 +37,30 @@ const RATINGS: { rating: Rating; labelKey: string; variant: "out" | "ink" }[] =
  */
 export function Flashcards({
   cards = SAMPLE_FLASHCARDS,
+  activeModule = null,
 }: {
   cards?: Flashcard[];
+  /** Set from /prep?module=<id> — filters the deck to one study module. */
+  activeModule?: ActiveModuleInfo | null;
 }) {
   const messages = useMessages();
+  const sectionRef = useRef<HTMLElement>(null);
+  // "End filter" / "use full deck" — a local escape hatch over the URL filter.
+  const [dismissed, setDismissed] = useState(false);
+
+  // The deck the session actually walks: full pool, or one module's slice.
+  const visible = useMemo(
+    () => selectVisibleCards(cards, activeModule, dismissed),
+    [cards, activeModule, dismissed],
+  );
+
+  // React to a module switch (or a fresh link after dismissing): re-arm the
+  // filter and restart the walk from the first card of the new slice.
+  useEffect(() => {
+    setDismissed(false);
+    setIndex(0);
+    setFlipped(false);
+  }, [activeModule?.competency]);
   // Seed per-card SRS state once, on the client, off a single `now`.
   const [states, setStates] = useState<Record<string, SrsState>>(() => {
     const now = Date.now();
@@ -55,14 +76,17 @@ export function Flashcards({
   const now = Date.now();
   const dueIds = useMemo(
     () =>
-      cards
+      visible
         .filter((c) => isDue(states[c.id] ?? newCard(now), now))
         .map((c) => c.id),
-    [cards, states, now],
+    [visible, states, now],
   );
 
-  const current = cards[index];
+  const current = visible[index];
   const allDone = dueIds.length === 0;
+  // Filtered to a module that owns no cards (real coach plans can name
+  // competencies the sample deck never covers).
+  const emptyModule = visible.length === 0;
 
   function rate(rating: Rating) {
     if (!current) return;
@@ -73,10 +97,10 @@ export function Flashcards({
     setFlipped(false);
 
     // Advance to the next card that is still due after this rating.
-    const order = cards.map((c) => c.id);
-    const start = (index + 1) % cards.length;
-    for (let step = 0; step < cards.length; step++) {
-      const i = (start + step) % cards.length;
+    const order = visible.map((c) => c.id);
+    const start = (index + 1) % visible.length;
+    for (let step = 0; step < visible.length; step++) {
+      const i = (start + step) % visible.length;
       const id = order[i];
       if (!id) continue;
       // The card we just rated is no longer due (we pushed it into the future).
@@ -103,13 +127,21 @@ export function Flashcards({
     setReviewedThisSession(0);
   }
 
-  const total = cards.length;
+  const total = visible.length;
   const dueCount = dueIds.length;
   const progressPct =
     total > 0 ? Math.round(((total - dueCount) / total) * 100) : 0;
 
+  // Jump the reader down to the deck whenever a module filter (re)applies —
+  // including a direct page load of /prep?module=<id>.
+  useEffect(() => {
+    if (activeModule) {
+      sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [activeModule]);
+
   return (
-    <section aria-labelledby="flashcards-heading">
+    <section ref={sectionRef} aria-labelledby="flashcards-heading">
       <header className="mb-4 flex items-end justify-between">
         <div>
           <Eyebrow>{t(messages, "prep.cardsEyebrow")}</Eyebrow>
@@ -133,6 +165,27 @@ export function Flashcards({
         </div>
       </header>
 
+      {/* Study-session banner: which module we're drilling, with the escape
+          hatch back to the full deck. Hidden once the filter is dismissed. */}
+      {activeModule && !dismissed && visible.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-card border border-accent/25 bg-accent-soft px-4 py-2.5">
+          <p className="text-[13.5px] text-ink-soft">
+            {allDone
+              ? t(messages, "prep.studyBannerDone")
+              : t(messages, "prep.studyBanner")
+                  .replace("{title}", activeModule.title)
+                  .replace("{n}", String(visible.length))}
+          </p>
+          <Button
+            variant="out"
+            size="sm"
+            onClick={() => setDismissed(true)}
+          >
+            {t(messages, "prep.endStudyFilter")}
+          </Button>
+        </div>
+      )}
+
       {/* Progress bar */}
       <div
         className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-line"
@@ -148,7 +201,25 @@ export function Flashcards({
         />
       </div>
 
-      {allDone || !current ? (
+      {activeModule && !dismissed && emptyModule ? (
+        // Module selected but the deck has no cards for it — honest fallback
+        // instead of an empty flip area.
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+            <h3 className="font-serif text-xl text-ink">
+              {t(messages, "prep.noModuleCards")}
+            </h3>
+            <Button
+              variant="out"
+              size="sm"
+              onClick={() => setDismissed(true)}
+              className="mt-1"
+            >
+              {t(messages, "prep.useAllCards")}
+            </Button>
+          </CardContent>
+        </Card>
+      ) : allDone || !current ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
             <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#e8f3ec]">

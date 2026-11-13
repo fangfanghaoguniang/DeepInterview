@@ -1,4 +1,4 @@
-import type { ScoreCard } from "@deepinterview/shared";
+import type { MasteryLevel, ScoreCard } from "@deepinterview/shared";
 import { cn } from "@/lib/cn";
 import { t, type Dictionary } from "@/lib/i18n";
 import { getServerMessages } from "@/lib/i18n/server";
@@ -15,6 +15,19 @@ function verdict(m: Dictionary, score: number): string {
   if (score >= 3.25) return t(m, "report.verdictOnTrack");
   if (score >= 2) return t(m, "report.verdictNeedsWork");
   return t(m, "report.verdictEarly");
+}
+
+// The scorecard's level enum is wire data (always English); the bento sublabels
+// localize it. Record<MasteryLevel, …> fails the build if the enum grows.
+const LEVEL_KEYS: Record<MasteryLevel, "report.levelWeak" | "report.levelDeveloping" | "report.levelSolid" | "report.levelStrong"> = {
+  weak: "report.levelWeak",
+  developing: "report.levelDeveloping",
+  solid: "report.levelSolid",
+  strong: "report.levelStrong",
+};
+
+function levelLabel(m: Dictionary, level: MasteryLevel): string {
+  return t(m, LEVEL_KEYS[level]);
 }
 
 type Metric = {
@@ -43,19 +56,19 @@ export async function ScoreBento({ scorecard }: { scorecard: ScoreCard }) {
     {
       label: t(m, "report.mComm"),
       value: comm ? comm.score.toFixed(1) : "—",
-      sub: comm ? `${comm.level} · /5` : t(m, "report.noSignal"),
+      sub: comm ? `${levelLabel(m, comm.level)} · /5` : t(m, "report.noSignal"),
       fill: comm ? comm.score : null,
     },
     {
       label: t(m, "report.mTech"),
       value: tech ? tech.score.toFixed(1) : "—",
-      sub: tech ? `${tech.level} · /5` : t(m, "report.noSignal"),
+      sub: tech ? `${levelLabel(m, tech.level)} · /5` : t(m, "report.noSignal"),
       fill: tech ? tech.score : null,
     },
     {
       label: t(m, "report.mStar"),
       value: star ? star.score.toFixed(1) : "—",
-      sub: star ? `${star.level} · /5` : t(m, "report.noSignal"),
+      sub: star ? `${levelLabel(m, star.level)} · /5` : t(m, "report.noSignal"),
       fill: star ? star.score : null,
     },
     {

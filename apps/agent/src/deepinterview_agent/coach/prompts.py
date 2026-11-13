@@ -2,15 +2,28 @@
 
 from __future__ import annotations
 
+from ..prep.prompts import language_name
 
-def study_module_prompts(competency: str, evidence: str, level: str) -> tuple[str, str]:
-    """Prompt to design ONE study module that closes a weak-competency gap."""
+
+def study_module_prompts(
+    competency: str, evidence: str, level: str, language: str = "en"
+) -> tuple[str, str]:
+    """Prompt to design ONE study module that closes a weak-competency gap.
+
+    ``language`` (BCP-ish code, default "en") controls the output language of
+    the free-text fields — legacy English-only callers keep the same behavior
+    since the rule then simply pins English explicitly. A Chinese interview
+    produces a Chinese study plan — same rule shape as the post pipeline's
+    ``_output_language_rule``.
+    """
     system = (
         "You are an expert interview-prep coach. Given a competency the candidate "
         "was weak on and the evidence from their interview, design ONE focused, "
         "actionable study module to close the gap. Return JSON with: title (short, "
         "concrete), rationale (one sentence tying it to the observed gap), and "
-        "est_min (focused minutes to complete, between 10 and 45)."
+        "est_min (focused minutes to complete, between 10 and 45). "
+        f"Write the title and rationale in {language_name(language)}. Keep JSON "
+        "keys, numbers, and the competency name exactly as specified."
     )
     user = (
         f"Competency: {competency}\n"

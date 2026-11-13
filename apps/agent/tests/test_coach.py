@@ -71,6 +71,18 @@ def test_coach_plan_empty_when_no_weak() -> None:
     assert plan.summary  # a non-empty, encouraging message
 
 
+def test_study_module_prompts_output_language_rule() -> None:
+    """Module text follows the requested language; default stays English."""
+    from deepinterview_agent.coach.prompts import study_module_prompts
+
+    system, _ = study_module_prompts("Kafka", "evidence", "weak")
+    assert "Write the title and rationale in English" in system
+    system_zh, _ = study_module_prompts("Kafka", "evidence", "weak", "zh")
+    assert "Write the title and rationale in Chinese" in system_zh
+    # The join key the frontend module filter relies on stays untouched.
+    assert "competency name exactly as specified" in system_zh
+
+
 def test_coach_chat_returns_grounded_reply() -> None:
     deps = build_deps()
     req = CoachChatRequest(
