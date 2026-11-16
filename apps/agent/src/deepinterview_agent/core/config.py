@@ -137,6 +137,10 @@ class Settings(BaseSettings):
     # room joins with no agent listening ("Connecting your interviewer…"
     # forever, issue #67).
     livekit_agent_name: str = "deepinterview-interviewer"
+    # The spoken study-coach worker registers under its OWN dispatch name, so
+    # an interview token never routes a coach job (and vice versa) — explicit
+    # dispatch matches on the exact name (see worker.py issue-#67 note).
+    livekit_coach_agent_name: str = "deepinterview-coach"
 
     # --- knowledge (LightRAG sidecar) ----------------------------------------
     # When set, the knowledge adapter + /api/kb/ingest forward to this base URL;
@@ -225,6 +229,13 @@ class Settings(BaseSettings):
     # or error the stage degrades to a valid fallback instead of failing the
     # whole scorecard. See post/__init__.py.
     score_stage_timeout_sec: float = 60.0
+    # Timeout retries per scoring stage. A congested provider queues requests
+    # for tens of seconds without failing them — one hard timeout then used to
+    # discard work that would have landed seconds later. On TIMEOUT only (not
+    # hard errors), the stage is re-invoked up to this many attempts with
+    # ``score_stage_retry_backoff_sec`` sleeps between.
+    score_stage_attempts: int = 3
+    score_stage_retry_backoff_sec: float = 5.0
     # Closed-loop skill distiller (WP-10): when enabled, a scored interview
     # proposes a playbook delta into the review queue. OFF by default so tests
     # and local runs don't write drafts; enable in production via env.

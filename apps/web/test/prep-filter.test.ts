@@ -4,6 +4,7 @@ import {
   buildStudyCards,
   type CardQuestionInput,
   type CardModelAnswerInput,
+  type CardDrillInput,
 } from "@/lib/prep-filter";
 import type { Flashcard } from "@/lib/sample-mastery";
 
@@ -98,5 +99,34 @@ describe("buildStudyCards — real deck assembly from the interview's own data",
   it("carries the English competency key for the module filter join", () => {
     const cards = buildStudyCards(QUESTIONS, ANSWERS, ["System Design"], "zh");
     expect(cards[0]?.competency).toBe("System Design");
+  });
+
+  it("folds in targeted drills (self-contained answer) with no model answer", () => {
+    // A drill is for an overflow competency the interview never asked about —
+    // it becomes a card purely from its own text + answer.
+    const drills = [
+      {
+        id: "drill_c1",
+        competency: "Concurrency",
+        text: { en: "Explain a deadlock", zh: "解释死锁" },
+        answer: "四个必要条件……",
+      },
+    ];
+    const cards = buildStudyCards(QUESTIONS, ANSWERS, ["System Design"], "zh", drills);
+    const drill = cards.find((c) => c.id === "drill_c1");
+    expect(drill?.competency).toBe("Concurrency");
+    expect(drill?.front).toBe("解释死锁"); // interview language wins
+    expect(drill?.back).toBe("四个必要条件……");
+  });
+
+  it("skips a drill with no front text or no answer", () => {
+    const drills: CardDrillInput[] = [
+      { id: "d_empty", competency: "X", text: {}, answer: "a" },
+      { id: "d_noans", competency: "Y", text: { en: "q" }, answer: "" },
+    ];
+    const cards = buildStudyCards(QUESTIONS, ANSWERS, ["System Design"], "zh", drills);
+    const ids = cards.map((c) => c.id);
+    expect(ids).not.toContain("d_empty");
+    expect(ids).not.toContain("d_noans");
   });
 });

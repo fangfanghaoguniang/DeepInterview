@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any
 
 from ..logging import get_logger
@@ -24,6 +25,62 @@ log = get_logger(__name__)
 # Per-call ceiling so a stalled provider call can never hang a pipeline forever
 # (the prep graph's per-node try/except only fires once the call RETURNS).
 _DEFAULT_TIMEOUT_SEC = 90.0
+
+# Per-coroutine stash of the token usage the most recent real LLM call reported.
+# The OpenAI/Gemini SDKs return usage on the response object, but the adapter
+# contract returns only text — so TracedLLM (core/tracing.py) reads the count
+# back out of this ContextVar to tag the active Langfuse generation span. A
+# ContextVar (not an instance attribute) keeps concurrent calls in one process
+# from overwriting each other; adapters that report no usage (mock) leave it None.
+_call_usage: ContextVar[dict[str, int] | None] = ContextVar("llm_call_usage", default=None)
+
+
+def consume_call_usage() -> dict[str, int] | None:
+    """Return and clear the current coroutine's last reported token usage.
+
+    Read by the ``TracedLLM`` wrapper right after each call. Clearing on read
+    means a call whose provider returned no usage never inherits a stale count
+    from an earlier call in the same task.
+    """
+    usage = _call_usage.get()
+    if usage is not None:
+        _call_usage.set(None)
+    return usage
+
+
+def _stash_usage(fields: dict[str, Any]) -> None:
+    """Record non-null token counts into the per-coroutine stash (no-op if all None)."""
+    clean = {k: int(v) for k, v in fields.items() if v is not None}
+    if clean:
+        _call_usage.set(clean)
+
+
+def _record_openai_usage(resp: Any) -> None:
+    """Stash prompt/completion/total token counts from an OpenAI-style response."""
+    usage = getattr(resp, "usage", None)
+    if usage is None:
+        return
+    _stash_usage(
+        {
+            "prompt_tokens": getattr(usage, "prompt_tokens", None),
+            "completion_tokens": getattr(usage, "completion_tokens", None),
+            "total_tokens": getattr(usage, "total_tokens", None),
+        }
+    )
+
+
+def _record_gemini_usage(resp: Any) -> None:
+    """Stash token counts from a google-genai response's ``usage_metadata``."""
+    usage = getattr(resp, "usage_metadata", None)
+    if usage is None:
+        return
+    _stash_usage(
+        {
+            "prompt_tokens": getattr(usage, "prompt_token_count", None),
+            "completion_tokens": getattr(usage, "candidates_token_count", None),
+            "total_tokens": getattr(usage, "total_token_count", None),
+        }
+    )
 
 
 def _schema_prompt(system: str, schema: type) -> str:
@@ -122,6 +179,7 @@ class GeminiLLM:
             ),
             timeout=self._timeout,
         )
+        _record_gemini_usage(resp)
         return resp.text or ""
 
     async def complete_json(self, *, system: str, user: str, schema: type) -> Any:
@@ -139,6 +197,7 @@ class GeminiLLM:
             ),
             timeout=self._timeout,
         )
+        _record_gemini_usage(resp)
         return schema.model_validate(_loads_json(resp.text or "{}"))
 
 
@@ -185,6 +244,7 @@ class OpenAILLM:
             ),
             timeout=self._timeout,
         )
+        _record_openai_usage(resp)
         return resp.choices[0].message.content or ""
 
     async def complete_json(self, *, system: str, user: str, schema: type) -> Any:
@@ -205,6 +265,7 @@ class OpenAILLM:
             ),
             timeout=self._timeout,
         )
+        _record_openai_usage(resp)
         return schema.model_validate(_loads_json(resp.choices[0].message.content or "{}"))
 
 

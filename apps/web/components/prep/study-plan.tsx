@@ -25,6 +25,10 @@ export async function StudyPlan({
   const msgs = await getServerMessages();
   const totalMin = modules.reduce((sum, m) => sum + m.est_min, 0);
   const gaps = weakAreas?.length ? weakAreas : [t(msgs, "prep.yourWeakAreas")];
+  // An empty module list means the coach ran successfully and found NO growth
+  // areas (the sample fallback is never empty — SAMPLE_STUDY_PLAN has modules),
+  // so render an honest localized empty state instead of a blank list.
+  const isEmpty = modules.length === 0;
 
   return (
     <section aria-labelledby="study-plan-heading">
@@ -37,17 +41,43 @@ export async function StudyPlan({
           {t(msgs, "prep.title")}
         </h2>
         <p className="mt-1 text-[14px] leading-relaxed text-muted">
-          {t(msgs, "prep.builtFrom")}
-          {weakAreas?.length ? (
+          {isEmpty ? (
+            t(msgs, "prep.noGapsBody")
+          ) : (
             <>
-              {" — "}
-              <span className="text-ink-soft">{gaps.join(", ")}</span>
+              {t(msgs, "prep.builtFrom")}
+              {weakAreas?.length ? (
+                <>
+                  {" — "}
+                  <span className="text-ink-soft">{gaps.join(", ")}</span>
+                </>
+              ) : null}
+              . {t(msgs, "prep.planSummary").replace("{n}", String(modules.length)).replace("{min}", String(totalMin))}
             </>
-          ) : null}
-          . {t(msgs, "prep.planSummary").replace("{n}", String(modules.length)).replace("{min}", String(totalMin))}
+          )}
         </p>
       </header>
 
+      {isEmpty ? (
+        <Card>
+          <CardContent className="flex items-start gap-3 py-6">
+            <span
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-soft font-mono text-[13px] text-accent"
+              aria-hidden
+            >
+              {"\u2713"}
+            </span>
+            <div className="min-w-0 flex-1">
+              <h3 className="font-serif text-[17px] text-ink">
+                {t(msgs, "prep.noGapsTitle")}
+              </h3>
+              <p className="mt-1 text-[13.5px] leading-relaxed text-muted">
+                {t(msgs, "prep.noGapsBody")}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
       <ol className="space-y-3">
         {modules.map((m, i) => (
           <li key={m.id}>
@@ -101,6 +131,7 @@ export async function StudyPlan({
           </li>
         ))}
       </ol>
+      )}
     </section>
   );
 }

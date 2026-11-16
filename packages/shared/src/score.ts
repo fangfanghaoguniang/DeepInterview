@@ -25,6 +25,18 @@ export const ModelAnswerSchema = z.object({
 });
 export type ModelAnswer = z.infer<typeof ModelAnswerSchema>;
 
+// One structured growth item: the prose the report shows PLUS the competency
+// key it maps to. The key is the join that lets the Prep Coach build a module,
+// card and mock-practice drill from a report weakness (previously the coach
+// only saw the separate, score-banded `weak_competencies`, so the report page
+// and the coach page could disagree). `competency` is either an exact name from
+// `competency_scores` or a canonical skill label the drill pipeline will target.
+export const GrowthItemSchema = z.object({
+  text: z.string(),
+  competency: z.string(),
+});
+export type GrowthItem = z.infer<typeof GrowthItemSchema>;
+
 export const ScoreCardSchema = z.object({
   overall_score: z.number(),
   competency_scores: z.array(CompetencyScoreSchema),
@@ -35,6 +47,9 @@ export const ScoreCardSchema = z.object({
   next_steps: z.array(z.string()),
   language_report: LanguageReportSchema,
   summary: z.string(),
+  // Structured weaknesses that drive the coach plan (report == drill source).
+  // Defaults to [] so scorecards persisted before this field still validate.
+  growth_items: z.array(GrowthItemSchema).default([]),
   // Fraction of planned questions actually answered (0.0-1.0). Unanswered
   // questions are excluded from overall_score and weak_competencies; this lets
   // consumers tell a short/aborted interview apart from genuinely weak answers.

@@ -46,6 +46,22 @@ def _request() -> PrepRequest:
     )
 
 
+class _UsageLLM:
+    """Minimal adapter that reports token usage through the adapters' ContextVar.
+
+    Mirrors what OpenAILLM/GeminiLLM do on a real call: stash usage before
+    returning text, so TracedLLM can pull it back out for the span + JSONL.
+    """
+
+    _model = "fake-model"
+
+    async def complete_text(self, *, system: str, user: str) -> str:
+        from deepinterview_agent.core.adapters.llm import _call_usage
+
+        _call_usage.set({"prompt_tokens": 11, "completion_tokens": 7, "total_tokens": 18})
+        return "the answer"
+
+
 def test_start_trace_and_nested_spans(tracedir) -> None:
     with tracing.start_trace("demo", session_id="sess_x", metadata={"k": "v"}) as tid:
         assert tid.startswith("tr_")
@@ -82,6 +98,95 @@ def test_trace_can_close_from_a_different_context(tracedir) -> None:
     events = _events(tracedir, tid)
     assert [e["type"] for e in events].count("trace_end") == 1
     assert events[-1]["status"] == "ok"
+
+
+def test_add_event_pinned_trace_id_survives_foreign_context(tracedir) -> None:
+    """``trace_id=`` lands an event even where the trace's ContextVar is invisible.
+
+    LiveKit fires conversation/shutdown callbacks from SDK-owned asyncio
+    contexts; an unpinned add_event there silently no-ops (the symptom: live
+    traces holding only the opening turn). Pinning must repair exactly that.
+    """
+    trace = tracing.start_trace("live")
+    tid = trace.__enter__()
+    try:
+        contextvars.Context().run(  # a truly empty context: no active trace
+            tracing.add_event, "turn", {"role": "user", "chars": 42}, 
+        )
+        tracing.add_event("turn", {"role": "assistant", "chars": 7}, trace_id=tid)
+        contextvars.Context().run(
+            tracing.add_event, "turn", {"role": "user", "chars": 99}, trace_id=tid,
+        )
+    finally:
+        trace.__exit__(None, None, None)
+    events = [
+        json.loads(line)
+        for line in (tracedir / f"{tid}.jsonl").read_text().splitlines()
+    ]
+    turns = [e for e in events if e.get("name") == "turn"]
+    # The unpinned call from the empty context is dropped (pre-fix behaviour,
+    # still correct when no id is passed); both pinned calls land.
+    assert [t["attrs"]["chars"] for t in turns] == [7, 99]
+
+
+def _memory_tracer(monkeypatch):
+    """Swap in an in-memory OTel tracer so parenting can be asserted offline."""
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
+        InMemorySpanExporter,
+    )
+
+    exporter = InMemorySpanExporter()
+    provider = TracerProvider()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+    monkeypatch.setattr(tracing, "_otel_tracer", provider.get_tracer("test"))
+    return exporter
+
+
+def test_otel_spans_form_one_tree_under_root(tracedir, monkeypatch) -> None:
+    """Langfuse must see ONE trace per run, not scattered one-row-per-call.
+
+    Every span and event started inside a start_trace block must share the
+    root's trace id and nest under it — the fix for the dashboard showing
+    prep.fetch_cv / prep.jd_analysis as unrelated standalone traces.
+    """
+    exporter = _memory_tracer(monkeypatch)
+    with tracing.start_trace("live", session_id="sess_tree"):
+        with tracing.start_span("turn"):
+            tracing.add_event("note", {"a": 1})
+        tracing.add_event("pipe.transcript", {"chars": 5})
+    spans = {s.name: s for s in exporter.get_finished_spans()}
+    assert set(spans) >= {"live", "turn", "note", "pipe.transcript"}
+    root = spans["live"]
+    assert root.parent is None
+    assert root.attributes.get("session.id") == "sess_tree"
+    for name in ("turn", "note", "pipe.transcript"):
+        assert spans[name].parent is not None
+        assert spans[name].context.trace_id == root.context.trace_id
+    # Events inside an open span nest under that span, not the bare root.
+    assert spans["turn"].parent.span_id == root.context.span_id
+    assert spans["note"].parent.span_id == spans["turn"].context.span_id
+    assert spans["pipe.transcript"].parent.span_id == root.context.span_id
+
+
+def test_pinned_event_from_foreign_context_joins_tree(tracedir, monkeypatch) -> None:
+    """A pinned event emitted where the ContextVar is invisible still trees.
+
+    The registry (not the ContextVar) must supply the OTel root for SDK
+    callback tasks, so LiveKit-side turn/pipe.* events land inside the same
+    hosted trace instead of being dropped or standing alone.
+    """
+    exporter = _memory_tracer(monkeypatch)
+    trace = tracing.start_trace("live")
+    tid = trace.__enter__()
+    try:
+        contextvars.Context().run(tracing.add_event, "turn", {"chars": 9}, trace_id=tid)
+    finally:
+        trace.__exit__(None, None, None)
+    spans = {s.name: s for s in exporter.get_finished_spans()}
+    assert spans["turn"].parent.span_id == spans["live"].context.span_id
+    assert spans["turn"].context.trace_id == spans["live"].context.trace_id
 
 
 def test_span_error_is_recorded_not_raised_past_trace(tracedir) -> None:
@@ -127,6 +232,136 @@ def test_traced_llm_records_calls(tracedir) -> None:
     assert all(c["ok"] for c in calls)
     # No prompt text by default (lengths only).
     assert "prompt_preview" not in calls[0]
+
+
+def test_traced_llm_stashes_usage_and_output(tmp_path, monkeypatch) -> None:
+    """With prompts opted in, the JSONL llm_call carries token usage + I/O text."""
+    monkeypatch.setenv("TRACE_ENABLED", "1")
+    tracing.init_tracing(enabled=True, trace_dir=tmp_path, include_prompts=True)
+    try:
+        llm = tracing.TracedLLM(_UsageLLM(), provider="fake")
+        with tracing.start_trace("llm-usage") as tid:
+            asyncio.run(llm.complete_text(system="sys", user="hello"))
+        call = next(e for e in _events(tmp_path, tid) if e["type"] == "llm_call")
+        assert call["usage"] == {"prompt_tokens": 11, "completion_tokens": 7, "total_tokens": 18}
+        assert call["output_preview"] == "the answer"
+        assert call["prompt_preview"] == "sys\nhello"
+    finally:
+        tracing.reset_tracing()
+        monkeypatch.setenv("TRACE_ENABLED", "0")
+
+
+def test_traced_llm_tags_langfuse_generation_span(tmp_path, monkeypatch) -> None:
+    """The active OTel span must be tagged as a Langfuse generation.
+
+    Asserts the exact attribute keys the Langfuse SDK reads (verified against the
+    installed package), so the dashboard renders model + token usage + full I/O
+    instead of a bare span. Bypasses _otel_start's 500-char truncation by design.
+    """
+    monkeypatch.setenv("TRACE_ENABLED", "1")
+    tracing.init_tracing(enabled=True, trace_dir=tmp_path, include_prompts=True)
+    try:
+        exporter = _memory_tracer(monkeypatch)
+        llm = tracing.TracedLLM(_UsageLLM(), provider="fake")
+        with tracing.start_trace("llm-gen"):
+            asyncio.run(llm.complete_text(system="sys", user="hello"))
+        spans = {s.name: s for s in exporter.get_finished_spans()}
+        attrs = spans["llm.complete_text"].attributes
+        assert attrs["langfuse.observation.type"] == "generation"
+        assert attrs["langfuse.observation.model.name"] == "fake-model"
+        assert json.loads(attrs["langfuse.observation.usage_details"])["total_tokens"] == 18
+        assert attrs["langfuse.observation.input"] == "sys\nhello"
+        assert attrs["langfuse.observation.output"] == "the answer"
+    finally:
+        tracing.reset_tracing()
+        monkeypatch.setenv("TRACE_ENABLED", "0")
+
+
+def test_traced_node_annotates_io(tmp_path, monkeypatch) -> None:
+    """A @traced pipeline node auto-tags its span with input manifest + output.
+
+    This is the phase-2 fix for prep nodes showing no I/O: the decorator reads
+    the leading ``state`` arg (long strings collapse to a marker so a full CV is
+    never re-dumped) and serializes the returned partial-state dict as output.
+    """
+    monkeypatch.setenv("TRACE_ENABLED", "1")
+    tracing.init_tracing(enabled=True, trace_dir=tmp_path, include_prompts=True)
+    try:
+        exporter = _memory_tracer(monkeypatch)
+
+        @tracing.traced("node.demo")
+        async def node(state, deps):
+            return {"candidate": {"name": "Ada", "years": 5}}
+
+        with tracing.start_trace("t"):
+            asyncio.run(node({"cv_text": "x" * 500, "req": object()}, None))
+
+        spans = {s.name: s for s in exporter.get_finished_spans()}
+        attrs = spans["node.demo"].attributes
+        assert json.loads(attrs["langfuse.observation.output"])["candidate"]["name"] == "Ada"
+        # A long input string collapses to a size marker, not its content.
+        assert json.loads(attrs["langfuse.observation.input"])["cv_text"] == "<str 500>"
+    finally:
+        tracing.reset_tracing()
+        monkeypatch.setenv("TRACE_ENABLED", "0")
+
+
+def test_traced_node_io_gated_when_prompts_off(tracedir, monkeypatch) -> None:
+    """With TRACE_INCLUDE_PROMPTS off, nodes carry no observation I/O."""
+    exporter = _memory_tracer(monkeypatch)
+
+    @tracing.traced("node.demo")
+    async def node(state, deps):
+        return {"candidate": {"name": "Ada"}}
+
+    with tracing.start_trace("t"):
+        asyncio.run(node({"cv_text": "hello"}, None))
+    spans = {s.name: s for s in exporter.get_finished_spans()}
+    assert "langfuse.observation.output" not in spans["node.demo"].attributes
+
+
+def test_annotate_trace_io_sets_root_attributes(tmp_path, monkeypatch) -> None:
+    """The trace root gets langfuse.trace.input/output so Sessions isn't blank."""
+    monkeypatch.setenv("TRACE_ENABLED", "1")
+    tracing.init_tracing(enabled=True, trace_dir=tmp_path, include_prompts=True)
+    try:
+        exporter = _memory_tracer(monkeypatch)
+        with tracing.start_trace("prep", session_id="s"):
+            tracing.annotate_trace_io(
+                input_obj={"company": "ACME"}, output_obj={"questions": 5}
+            )
+        spans = {s.name: s for s in exporter.get_finished_spans()}
+        attrs = spans["prep"].attributes
+        assert json.loads(attrs["langfuse.trace.input"])["company"] == "ACME"
+        assert json.loads(attrs["langfuse.trace.output"])["questions"] == 5
+    finally:
+        tracing.reset_tracing()
+        monkeypatch.setenv("TRACE_ENABLED", "0")
+
+
+def test_annotate_trace_io_pinned_foreign_context(tmp_path, monkeypatch) -> None:
+    """A pinned trace_id resolves the root via the registry, not the ContextVar.
+
+    Mirrors the worker shutdown path: the live trace root is annotated from an
+    SDK-owned asyncio Context where ``_current_trace`` is invisible.
+    """
+    monkeypatch.setenv("TRACE_ENABLED", "1")
+    tracing.init_tracing(enabled=True, trace_dir=tmp_path, include_prompts=True)
+    try:
+        exporter = _memory_tracer(monkeypatch)
+        trace = tracing.start_trace("live")
+        tid = trace.__enter__()
+        try:
+            contextvars.Context().run(
+                tracing.annotate_trace_io, output_obj={"turns": 3}, trace_id=tid
+            )
+        finally:
+            trace.__exit__(None, None, None)
+        spans = {s.name: s for s in exporter.get_finished_spans()}
+        assert json.loads(spans["live"].attributes["langfuse.trace.output"])["turns"] == 3
+    finally:
+        tracing.reset_tracing()
+        monkeypatch.setenv("TRACE_ENABLED", "0")
 
 
 def test_disabled_tracing_writes_nothing(tmp_path, monkeypatch) -> None:

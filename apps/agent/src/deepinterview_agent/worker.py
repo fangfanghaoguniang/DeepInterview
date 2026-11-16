@@ -31,7 +31,7 @@ from .core.config import get_settings
 from .core.deps import build_deps
 from .core.logging import get_logger
 from .core.observability import init_observability
-from .core.tracing import add_event, start_trace
+from .core.tracing import add_event, annotate_trace_io, start_trace
 from .live import state
 from .live.director import Director
 from .live.flusher import TranscriptFlusher
@@ -90,8 +90,51 @@ def wire_audio_path_logging(ctx: JobContext, session) -> None:
                  getattr(ev, "is_final", "?"), len(getattr(ev, "transcript", "") or ""))
 
 
+def wire_pipeline_telemetry(session, trace_id: str, anchors: dict) -> None:
+    """Land the slow-motion milestones of the audio path in the live trace.
+
+    The stuck-interview failure class this fork keeps hitting lives BETWEEN
+    the SDK's committed turns: audio flushes, the batch SenseVoice request
+    runs, the transcript lands (or doesn't) inside the commit window, the LLM
+    thinks, TTS speaks. None of that was measurable — logs only showed the
+    endpoints, so every stall had to be triangulated by hand. Each event is
+    one line with a duration and a size, never verbatim text (same privacy
+    policy as ``turn`` events). trace_id is pinned explicitly because these
+    callbacks fire from SDK-owned asyncio contexts.
+    """
+    import time as _time
+
+    def _ms_since(key: str) -> float:
+        base = anchors.get(key)
+        return round((_time.perf_counter() - base) * 1000, 1) if base else -1.0
+
+    @session.on("user_input_transcribed")
+    def _on_final_transcript(ev) -> None:
+        if not getattr(ev, "is_final", False):
+            return
+        text = getattr(ev, "transcript", "") or ""
+        anchors["last_transcript_chars"] = len(text)
+        add_event(
+            "pipe.transcript",
+            {"chars": len(text), "ms_since_finish": _ms_since("finish_ts")},
+            trace_id=trace_id,
+        )
+
+    @session.on("agent_state_changed")
+    def _on_agent_state(ev) -> None:
+        add_event(
+            "pipe.agent_state",
+            {
+                "state": str(getattr(ev, "new_state", ev)),
+                "ms_since_commit": _ms_since("commit_ts"),
+            },
+            trace_id=trace_id,
+        )
+
+
 def wire_transcript_capture(
-    session, userdata: InterviewUserdata, *, tag_questions: bool = True
+    session, userdata: InterviewUserdata, *, tag_questions: bool = True,
+    trace_id: str | None = None,
 ) -> None:
     """Capture every committed conversation turn into the flat transcript log.
 
@@ -116,9 +159,11 @@ def wire_transcript_capture(
         if role in ("user", "assistant") and text:
             # Land every committed turn in the live trace too (role + size only,
             # never the verbatim text), so `deepinterview traces show` replays
-            # the interview's shape. No-op when tracing is disabled or when no
-            # live trace is open (e.g. the study-coach session).
-            add_event("turn", {"role": role, "chars": len(text)})
+            # the interview's shape. No-op when tracing is disabled. The trace
+            # id must be pinned explicitly: this callback runs in an SDK-owned
+            # asyncio context where the entrypoint's trace ContextVar is not
+            # visible — without it only the opening turn ever landed.
+            add_event("turn", {"role": role, "chars": len(text)}, trace_id=trace_id)
             if tag_questions:
                 state.add_turn(userdata, role, text)
             else:
@@ -504,13 +549,21 @@ def build_turn_handling(language: str = "en") -> dict:
     ``session.commit_user_turn()`` (which flushes the STT buffer and waits
     for the late final transcript before generating the reply).
 
-    ``min_words: 3`` still gates interruptions so raw VAD energy (door slam,
-    background chatter) can't cut the interviewer off mid-sentence.
+    ``min_words: 3`` is kept as documentation of the old energy gate, but
+    interruptions are switched OFF entirely (``enabled: False``): under this
+    purely manual design the candidate's microphone is muted while the
+    interviewer speaks, so a legitimate barge-in can never happen — the only
+    thing the gate ever fired on was the LATE transcript of an already-
+    committed turn (a "ghost interruption" that cut off the interviewer's
+    fresh question). See the 26s-tail live incident trace.
 
     The ``language`` parameter is retained for call-site stability; manual
     mode is language-agnostic.
     """
-    return {"interruption": {"min_words": 3}, "turn_detection": "manual"}
+    return {
+        "interruption": {"enabled": False, "min_words": 3},
+        "turn_detection": "manual",
+    }
 
 
 def build_room_options(settings):
@@ -723,8 +776,12 @@ async def entrypoint(ctx: JobContext) -> None:
             "questions": len(interview_ctx.plan.questions),
         },
     )
-    _live_trace.__enter__()
-    add_event("live.start", {"questions": len(interview_ctx.plan.questions)})
+    _live_trace_id = _live_trace.__enter__()
+    add_event("live.start", {"questions": len(interview_ctx.plan.questions)},
+              trace_id=_live_trace_id)
+    # Shared timing anchors between the commit callback below and the
+    # pipeline telemetry listeners (perf_counter values, never wall clock).
+    _pipe_anchors: dict = {}
     # Built once and shared: the local Whisper STT needs a VAD to segment the
     # mic stream, and loading Silero twice would waste the prewarm.
     vad = build_vad(ctx.proc)
@@ -746,32 +803,74 @@ async def entrypoint(ctx: JobContext) -> None:
 
     # Purely manual turn-taking (see build_turn_handling): the only thing
     # that ends a candidate's turn is the frontend "I'm done speaking"
-    # button arriving on the data channel. transcript_timeout is generous
-    # because the batch SenseVoice path can return the final transcript
-    # several seconds after the audio stops.
+    # button arriving on the data channel. transcript_timeout must cover a
+    # WHOLE long answer on the batch SenseVoice path: the request only fires
+    # after the audio flushes, and a 150-character reply measured >5s end to
+    # end in live testing — but on a congested provider day the same flush
+    # took 26s, sliding past the old 20s window and splitting one answer
+    # across two bubbles (late tail committed as a phantom second turn).
+    # 40s covers the observed worst case; the cost only materialises when
+    # STT is genuinely down (the window early-exits as soon as the
+    # transcript lands — 0.7s on a healthy day).
     @ctx.room.on("data_received")
     def _on_finish_turn(data) -> None:
         if getattr(data, "topic", "") != FINISH_TURN_TOPIC:
             return
+        import time as _time
+
+        _pipe_anchors["finish_ts"] = _time.perf_counter()
+        add_event("pipe.finish", {}, trace_id=_live_trace_id)
         log.info("worker: finish_answer received -> committing user turn")
         try:
-            fut = session.commit_user_turn(transcript_timeout=5.0)
+            fut = session.commit_user_turn(transcript_timeout=40.0)
         except RuntimeError:  # session not started / already ending
+            add_event("pipe.commit_error", {"reason": "session not running"},
+                      trace_id=_live_trace_id)
             log.warning("worker: finish_answer ignored; session not running")
             return
 
         def _done(f) -> None:
+            recorded = False
             try:
-                f.result()
-            except Exception:  # noqa: BLE001 - logged, never crashes the job
+                transcript = f.result()
+                _pipe_anchors["commit_ts"] = _time.perf_counter()
+                # Deterministic answer logging: the Future resolves with the
+                # user's committed transcript, so the program records it
+                # against the current question itself instead of relying on
+                # the interviewer LLM remembering to call save_answer (in the
+                # incident session it called the tool for 2 of 4 turns, and
+                # the report scored what little reached ctx.answers).
+                # Best-effort — must never break the commit bookkeeping.
+                try:
+                    recorded = state.record_committed_answer(userdata, transcript) is not None
+                except Exception:
+                    log.exception("worker: record_committed_answer failed")
+                # transcript_chars = what the batch STT actually delivered
+                # before the window closed; -1 = nothing ever arrived, i.e.
+                # the cold-stall fingerprint (turn committed on silence).
+                add_event(
+                    "pipe.commit",
+                    {
+                        "waited_ms": round(
+                            (_time.perf_counter() - _pipe_anchors["finish_ts"]) * 1000, 1
+                        ),
+                        "transcript_chars": _pipe_anchors.get("last_transcript_chars", -1),
+                        "answer_recorded": recorded,
+                    },
+                    trace_id=_live_trace_id,
+                )
+            except Exception:
+                add_event("pipe.commit_error", {"reason": "commit raised"},
+                          trace_id=_live_trace_id)
                 log.exception("worker: commit_user_turn failed")
 
         fut.add_done_callback(_done)
 
     # Persisted transcript = real committed turns (STT + agent speech), not
     # whatever the LLM chose to pass to save_answer.
-    wire_transcript_capture(session, userdata)
+    wire_transcript_capture(session, userdata, trace_id=_live_trace_id)
     wire_audio_path_logging(ctx, session)
+    wire_pipeline_telemetry(session, _live_trace_id, _pipe_anchors)
 
     director = Director(
         userdata, enable_adaptive=settings.enable_adaptive_difficulty
@@ -893,6 +992,21 @@ async def entrypoint(ctx: JobContext) -> None:
                         [a for a in userdata.ctx.answers if (a.transcript or "").strip()]
                     ),
                 },
+                trace_id=_live_trace_id,
+            )
+            # Live trace-root overview (turn/answer counts). Per-turn verbatim
+            # I/O is a later phase; this just makes the Sessions card non-blank.
+            # trace_id is required: shutdown runs in a foreign asyncio Context
+            # where the _current_trace ContextVar is invisible.
+            annotate_trace_io(
+                input_obj={"phase": "live", "questions": len(userdata.ctx.plan.questions)},
+                output_obj={
+                    "turns": len(userdata.transcript),
+                    "answers": len(
+                        [a for a in userdata.ctx.answers if (a.transcript or "").strip()]
+                    ),
+                },
+                trace_id=_live_trace_id,
             )
         finally:
             # Observability must never prevent the authoritative persist and

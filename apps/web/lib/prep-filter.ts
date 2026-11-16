@@ -41,6 +41,18 @@ export interface CardModelAnswerInput {
   question_id: string;
   answer: string;
 }
+/**
+ * A targeted drill the coach generated for an OVERFLOW growth competency — one
+ * the interview never asked about, so it has no plan question and no model
+ * answer. It arrives self-contained (its own reference `answer`), so it bypasses
+ * the weak-set + model-answer gate the interview questions must clear.
+ */
+export interface CardDrillInput {
+  id: string;
+  competency: string;
+  text: Record<string, string>;
+  answer: string;
+}
 
 /**
  * Real-deck assembly (no LLM, no new API): the candidate's own weak-area
@@ -62,6 +74,7 @@ export function buildStudyCards(
   modelAnswers: CardModelAnswerInput[],
   weakCompetencies: string[],
   language: string,
+  drills: CardDrillInput[] = [],
 ): Flashcard[] {
   const weak = new Set(weakCompetencies);
   const answerByQ = new Map(modelAnswers.map((a) => [a.question_id, a.answer]));
@@ -75,6 +88,18 @@ export function buildStudyCards(
       front: q.text[language] ?? q.text.en ?? "",
       back: answer,
       competency: q.target_competency,
+    });
+  }
+  // Drills are curated for a growth area and always carry their own answer, so
+  // they become cards unconditionally (no weak-set / model-answer gate applies).
+  for (const d of drills) {
+    const front = d.text[language] ?? d.text.en ?? "";
+    if (!front || !d.answer) continue;
+    cards.push({
+      id: d.id,
+      front,
+      back: d.answer,
+      competency: d.competency,
     });
   }
   return cards;

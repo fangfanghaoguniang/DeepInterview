@@ -83,3 +83,67 @@ export async function createInterviewToken({
   const token = await at.toJwt();
   return { token, url: serverEnv.livekitUrl as string };
 }
+
+/**
+ * LiveKit room name for a session's SPOKEN COACH room. Prefixed so it can
+ * never collide with the interview room (which IS the bare session id) — the
+ * coach for a live interview runs in its own room, its own agent.
+ */
+export function coachRoomName(sessionId: string): string {
+  return `coach_${sessionId}`;
+}
+
+export interface CreateCoachTokenArgs {
+  /** The INTERVIEW session the coach briefs itself from (capability handle). */
+  sessionId: string;
+  identity: string;
+  name?: string;
+}
+
+/**
+ * Mint a token for the spoken study-coach room of one verified session.
+ *
+ * Same explicit-dispatch shape as `createInterviewToken` (issue #67 lesson),
+ * except: the room is the prefixed `coach_<sessionId>` (so it never shares a
+ * room with the live interview), the dispatch requests the COACH worker's
+ * name, and the metadata still carries the raw session id — `worker_coach`
+ * resolves its InterviewContext from that, not from the room name.
+ */
+export async function createCoachToken({
+  sessionId,
+  identity,
+  name,
+}: CreateCoachTokenArgs): Promise<InterviewToken> {
+  if (!isLiveKitConfigured()) {
+    throw new Error(
+      "LiveKit is not configured. Set LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET.",
+    );
+  }
+
+  const room = coachRoomName(sessionId);
+  const at = new AccessToken(
+    serverEnv.livekitApiKey,
+    serverEnv.livekitApiSecret,
+    { identity, name },
+  );
+
+  at.addGrant({
+    room,
+    roomJoin: true,
+    canPublish: true,
+    canSubscribe: true,
+    canPublishData: true,
+  });
+
+  at.roomConfig = new RoomConfiguration({
+    agents: [
+      new RoomAgentDispatch({
+        agentName: serverEnv.livekitCoachAgentName,
+        metadata: JSON.stringify({ session_id: sessionId }),
+      }),
+    ],
+  });
+
+  const token = await at.toJwt();
+  return { token, url: serverEnv.livekitUrl as string };
+}

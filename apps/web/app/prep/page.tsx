@@ -8,41 +8,21 @@ import { t } from "@/lib/i18n";
 import { getServerLocale, getServerMessages } from "@/lib/i18n/server";
 import type { StudyModule } from "@deepinterview/shared";
 import { serverEnv } from "@/lib/env";
-import { SessionViewSchema, type SessionView } from "@/lib/session";
-import { buildStudyCards } from "@/lib/prep-filter";
+import { loadSessionView, loadCoachTranscript } from "@/lib/session-read";
+import { buildStudyCards, type CardDrillInput } from "@/lib/prep-filter";
 import { SAMPLE_SCORECARD } from "@/lib/sample-scorecard";
 import { SAMPLE_STUDY_PLAN } from "@/lib/sample-mastery";
-import { requestCoachPlan } from "@/lib/api";
+import { requestCoachPlan, requestCoachDrill } from "@/lib/api";
 import { StudyPlan } from "@/components/prep/study-plan";
 import { GroundedChat } from "@/components/prep/grounded-chat";
 import { Flashcards } from "@/components/prep/flashcards";
 import { MasteryGraphView } from "@/components/prep/mastery-graph";
 import { SocraticCta } from "@/components/prep/socratic-cta";
+import { CoachSessionReplay } from "@/components/prep/coach-session";
 
 // Reads server-only config (`isSupabaseConfigured()`) and the per-request user;
 // must not be statically prerendered.
 export const dynamic = "force-dynamic";
-
-/**
- * Fetch a session's real scorecard from the agent API (same pattern as the
- * report page's `load()`). Returns null on ANY miss — agent down, unknown
- * session, shape drift, or a session that hasn't been scored yet — so the
- * caller can fall back honestly.
- */
-async function loadSessionView(id: string): Promise<SessionView | null> {
-  try {
-    const res = await fetch(
-      `${serverEnv.agentApiUrl}/api/session/${encodeURIComponent(id)}`,
-      { cache: "no-store", signal: AbortSignal.timeout(15_000) },
-    );
-    if (!res.ok) return null;
-    const parsed = SessionViewSchema.safeParse(await res.json());
-    if (!parsed.success) return null;
-    return parsed.data;
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Prep Coach (WP-4). The closed-loop study surface: it turns the last
@@ -94,8 +74,20 @@ export default async function PrepPage({
     : await getServerLocale();
   let studyModules: StudyModule[] | undefined;
   try {
-    const plan = await requestCoachPlan(scorecard, planLanguage);
-    if (plan.modules.length > 0) studyModules = plan.modules;
+    // Pass the linked session so the backend merges its persisted practice
+    // mastery into the module statuses. Only for a real session view — the
+    // sample path has no session to read and stays a pure scorecard plan.
+    const plan = await requestCoachPlan(
+      scorecard,
+      planLanguage,
+      view ? sessionId ?? undefined : undefined,
+    );
+    // Success: adopt the real modules EVEN WHEN EMPTY. A no-gaps interview is a
+    // genuine result, not a failure — collapsing both into a falsy check used to
+    // silently drop English SAMPLE_STUDY_PLAN over a real (empty) plan. Only a
+    // thrown call (agent down) leaves this undefined, which StudyPlan renders
+    // as the clearly-labeled preview.
+    studyModules = plan.modules;
   } catch {
     // Agent down / offline dev — StudyPlan renders its default sample modules.
   }
@@ -109,13 +101,45 @@ export default async function PrepPage({
   // model answers the post pipeline wrote into the scorecard. Empty (no
   // session, unscored, or no model answers yet) → Flashcards keeps its sample
   // deck, consistent with the "preview data" badge above.
+  const cardLanguage = view?.context
+    ? view.context.plan.language_mode.primary
+    : planLanguage;
+  const baseCards =
+    view?.context && real
+      ? buildStudyCards(
+          view.context.plan.questions,
+          real.model_answers,
+          real.weak_competencies,
+          cardLanguage,
+        )
+      : [];
+
+  // Targeted drills: when the learner opens a study module whose competency the
+  // mock never scored, there are no real interview cards for it. Ask the coach
+  // to generate a few — cached on the session, so re-visits don't regenerate.
+  // Scoped to the ACTIVE module to bound LLM cost; browsing the full deck adds
+  // nothing. Fails closed (no drills) if the agent is unreachable.
+  let drills: CardDrillInput[] = [];
+  if (view && sessionId && real && activeStudyModule) {
+    const comp = activeStudyModule.competency;
+    const coveredByInterview = baseCards.some((c) => c.competency === comp);
+    if (!coveredByInterview) {
+      try {
+        drills = await requestCoachDrill(sessionId, comp, cardLanguage);
+      } catch {
+        // Agent down — the deck simply omits drills for this module.
+      }
+    }
+  }
+
   const realCards =
     view?.context && real
       ? buildStudyCards(
           view.context.plan.questions,
           real.model_answers,
           real.weak_competencies,
-          view.context.plan.language_mode.primary,
+          cardLanguage,
+          drills,
         )
       : [];
 
@@ -189,8 +213,15 @@ export default async function PrepPage({
 
       {/* Voice Socratic mode */}
       <section className="mt-12">
-        <SocraticCta />
+        <SocraticCta sessionId={view ? sessionId : null} />
       </section>
+
+      {/* Last spoken coaching session, when this one was practiced */}
+      {view && sessionId ? (
+        <CoachSessionReplay
+          turns={(await loadCoachTranscript(sessionId)) ?? []}
+        />
+      ) : null}
     </main>
   );
 }

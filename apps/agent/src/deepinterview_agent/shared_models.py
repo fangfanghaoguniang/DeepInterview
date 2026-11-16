@@ -192,6 +192,20 @@ class ModelAnswer(BaseModel):
     answer: str
 
 
+class GrowthItem(BaseModel):
+    """One structured growth area: report prose PLUS the competency it drills.
+
+    The ``competency`` key is the join the Prep Coach uses to turn a report
+    weakness into a study module / card / mock drill. It is either an exact
+    name from ``competency_scores`` or a canonical skill label the drill
+    pipeline targets. Field-identical with ``GrowthItemSchema`` in packages/shared.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    text: str
+    competency: str
+
+
 class ScoreCard(BaseModel):
     model_config = ConfigDict(extra="forbid")
     overall_score: float
@@ -203,6 +217,10 @@ class ScoreCard(BaseModel):
     next_steps: list[str]
     language_report: LanguageReport
     summary: str
+    # Structured weaknesses that drive the coach plan (report == drill source).
+    # Defaults empty so scorecards persisted before this field still validate;
+    # when empty the coach falls back to the score-banded ``weak_competencies``.
+    growth_items: list[GrowthItem] = Field(default_factory=list)
     # Fraction of planned questions actually answered (0.0-1.0). Lets consumers
     # distinguish a low score caused by a short/aborted interview from genuinely
     # weak answers; unanswered questions are excluded from overall_score and
@@ -215,6 +233,12 @@ class ScoreCard(BaseModel):
 
 
 MasteryState = Literal["unseen", "learning", "shaky", "mastered"]
+
+# Per-session practice mastery: competency name -> its latest mastery state.
+# Stored on the session row (``practice_state`` column) and merged into a
+# StudyPlan's module statuses. A plain mapping, NOT a registered MODELS schema,
+# so it never touches the TS<->Py schema parity (it is a storage detail).
+PracticeState = dict[str, MasteryState]
 
 
 class StudyModule(BaseModel):
@@ -232,6 +256,24 @@ class StudyPlan(BaseModel):
     modules: list[StudyModule]
     summary: str
     total_min: int
+
+
+class DrillItem(BaseModel):
+    """A targeted practice question generated for a growth competency that had
+    NO scored interview question (the report's overflow dimension), bundled with
+    a reference answer so it can render as a flashcard.
+
+    Stored per-session on the ``drill_items`` column (migration 0008); NEVER
+    folded back into the sealed interview ``context.plan.questions``. Mirrors
+    ``DrillItemSchema`` in packages/shared but, like ``GrowthItem``, is NOT a
+    registered MODELS schema (it is a coach-side artifact, not a wire envelope).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    id: str
+    competency: str
+    text: LocalizedText
+    answer: str
 
 
 class CoachChatRequest(BaseModel):

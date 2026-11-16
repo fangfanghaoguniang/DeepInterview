@@ -63,6 +63,34 @@ interface Loaded {
 }
 
 /**
+ * One-shot rescue for a persisted DEGRADED card. The agent writes degraded
+ * scorecards (numbers-only / narrative-less) when the report-stage LLM calls
+ * die on provider congestion — the `complete` status makes them terminal to a
+ * poller, but the `?force=true` score endpoint re-runs the paid pipeline
+ * server-side. A congestion day usually clears, so a page visit gets exactly
+ * one free re-run attempt; a still-failing backend re-persists a degraded
+ * card, which this never retries again (the flag is per server render).
+ */
+async function rerunDegradedScore(id: string): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `${serverEnv.agentApiUrl}/api/score?force=true`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ session_id: id }),
+        // Stage retries live server-side (attempts x timeout + backoffs);
+        // stay under the worker's own 600s budget but tolerate a slow rerun.
+        signal: AbortSignal.timeout(300_000),
+      },
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Resolve the report state by reading the agent API
  * (`GET /api/session/{id}` → SessionView, which carries `scorecard` + `context`).
  * The sample preview is used ONLY on a true miss (agent down / unknown session /
@@ -122,11 +150,45 @@ async function load(id: string): Promise<Loaded> {
         c.strengths.length === 0 &&
         c.weaknesses.length === 0 &&
         c.model_answers.length === 0;
+      const degraded = !hasScores || narrativeMissing;
+      if (degraded && view.status === "complete" && (await rerunDegradedScore(id))) {
+        // Force re-score ran to completion; re-read the (hopefully) repaired
+        // view. Any failure or unchanged shape falls back to the first parse.
+        try {
+          const retryRes = await fetch(
+            `${serverEnv.agentApiUrl}/api/session/${encodeURIComponent(id)}`,
+            { cache: "no-store", signal: AbortSignal.timeout(15_000) },
+          );
+          if (retryRes.ok) {
+            const retryParsed = SessionViewSchema.safeParse(await retryRes.json());
+            if (retryParsed.success) {
+              const rc = retryParsed.data.scorecard;
+              const rHasScores = (rc?.competency_scores?.length ?? 0) > 0;
+              const rNarrativeMissing =
+                !!rc &&
+                rc.strengths.length === 0 &&
+                rc.weaknesses.length === 0 &&
+                rc.model_answers.length === 0;
+              if (rc && rHasScores && !rNarrativeMissing) {
+                return {
+                  ...base,
+                  state: "ready",
+                  scorecard: rc,
+                  context: retryParsed.data.context ?? view.context,
+                  degraded: false,
+                };
+              }
+            }
+          }
+        } catch {
+          // fall through to the honest degraded render
+        }
+      }
       return {
         ...base,
         state: "ready",
         scorecard: c,
-        degraded: !hasScores || narrativeMissing,
+        degraded,
       };
     }
     // `complete` but no card at all (partial/legacy write): terminal — treat as

@@ -41,6 +41,10 @@ _WRAP_UP_LINE = (
 # for any language not listed here.
 _WRAP_UP_LINES: dict[str, str] = {
     "en": _WRAP_UP_LINE,
+    "zh": (
+        "今天的时间到这里，我们就先练到这里。感谢你的投入——"
+        "反馈稍后就准备好。"
+    ),
     "vi": (
         "Đã hết thời gian cho buổi phỏng vấn, chúng ta kết thúc ở đây nhé. "
         "Cảm ơn bạn — phản hồi của bạn sẽ sẵn sàng trong giây lát."

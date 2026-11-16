@@ -95,9 +95,27 @@ def save_answer(
     Appends a new :class:`AnswerRecord` (keyed by the current question's id) to
     ``ud.ctx.answers`` and returns it. No-ops to a synthetic record only when the
     cursor is past the end; callers should normally have a current question.
+
+    Dedup: when the last record for the same question id and the new text
+    *contain* each other (one is a substring of the other), the new call is
+    treated as a restatement of the same utterance and the existing record is
+    returned unchanged — the program-side commit logger and the interviewer's
+    ``save_answer`` tool record the same speech on two tracks, and only the
+    richer text should survive. An empty ``transcript`` NEVER dedups: a
+    trailing ``save_answer("")`` must still be able to void a question (the
+    semantics ``reconstruct_answers`` relies on).
     """
     q = current_question(ud)
     question_id = q.id if q is not None else ""
+    stripped = transcript.strip()
+    if stripped:
+        for existing in reversed(ud.ctx.answers):
+            if existing.question_id != question_id:
+                continue
+            prior = (existing.transcript or "").strip()
+            if prior and (stripped in prior or prior in stripped):
+                return existing
+            break
     record = AnswerRecord(
         question_id=question_id,
         transcript=transcript,
@@ -106,6 +124,32 @@ def save_answer(
     )
     ud.ctx.answers.append(record)
     return record
+
+
+def record_committed_answer(
+    ud: InterviewUserdata, transcript: str | None
+) -> AnswerRecord | None:
+    """Deterministically log the STT text of a just-committed user turn.
+
+    ``ctx.answers`` feeds the scorer, and the interviewer LLM only *sometimes*
+    calls the ``save_answer`` tool (a live session logged 2 of 4 turns). The
+    worker owns the authoritative transcript the moment
+    ``session.commit_user_turn()`` resolves, so it records the answer itself
+    instead of trusting the model's diligence.
+
+    Skips (returns ``None``) when the cursor is past the planned end, the
+    transcript is missing, or it is below ``_MIN_RECOVERED_WORDS`` of real
+    speech (acknowledgements and stray noise are not answers — same gate as
+    :func:`reconstruct_answers`, so junk never enters the scoring input).
+    Goes through :func:`save_answer`, so a duplicate of what the tool already
+    saved is coalesced, not appended twice.
+    """
+    text = (transcript or "").strip()
+    if not text or len(text.split()) < _MIN_RECOVERED_WORDS:
+        return None
+    if current_question(ud) is None:
+        return None
+    return save_answer(ud, transcript=text, started_at="", ended_at="")
 
 
 def next_section(ud: InterviewUserdata) -> PlannedQuestion | None:
@@ -346,6 +390,26 @@ def compact_summary(ud: InterviewUserdata) -> str:
     )
 
 
+def _focus_competencies(scorecard: ScoreCard) -> list[str]:
+    """The coach's focus list, in strongest-need-first order.
+
+    Single source of truth: the report's structured ``growth_items`` (what the
+    candidate actually sees on the report page), deduped by competency. Older
+    scorecards (or ones that produced no growth items) fall back to the legacy
+    ``weak_competencies`` band so the coach stays a no-op-free path.
+    """
+    focus: list[str] = []
+    seen: set[str] = set()
+    for gi in scorecard.growth_items:
+        comp = gi.competency
+        if comp and comp not in seen:
+            seen.add(comp)
+            focus.append(comp)
+    if focus:
+        return focus
+    return [c for c in scorecard.weak_competencies if c and c not in seen]
+
+
 def weak_areas_summary(scorecard: ScoreCard | None) -> str:
     """A short, spoken-coach-friendly summary of the candidate's weak areas.
 
@@ -358,10 +422,54 @@ def weak_areas_summary(scorecard: ScoreCard | None) -> str:
             "No scorecard yet for this session. Ask the candidate which area they "
             "want to work on and coach from there."
         )
-    weak = list(scorecard.weak_competencies)
+    weak = _focus_competencies(scorecard)
     if not weak:
         return (
             "No specific weak areas from the last interview. Reinforce strengths "
             "and run a quick refresher on the candidate's chosen topic."
         )
     return "Focus areas from the last interview (weakest first): " + ", ".join(weak) + "."
+
+
+def coach_briefing(
+    questions: list[PlannedQuestion] | tuple[PlannedQuestion, ...],
+    scorecard: ScoreCard | None,
+    language: str = "en",
+) -> str:
+    """The spoken coach's lean opening context: weak areas + a private answer key.
+
+    Builds on :func:`weak_areas_summary` and — when the weakest competency has
+    interview questions with model answers on file — appends up to two
+    ``asked → strong answer`` reference pairs. The reference is explicitly
+    marked private in the text so the persona treats it as judging context,
+    not something to read aloud (Socratic rule: guide, never recite).
+
+    Free text follows the interview ``language`` because model answers and
+    question texts are already stored in it (post-pipeline B); the framing
+    labels stay English — they are coach-facing, never spoken.
+
+    Pure + livekit-free, like ``weak_areas_summary``: absent scorecard, no
+    weak areas, or no answerable weak question all degrade to the summary
+    fallback lines verbatim.
+    """
+    base = weak_areas_summary(scorecard)
+    if scorecard is None:
+        return base
+    focus = _focus_competencies(scorecard)
+    if not focus:
+        return base
+    weakest = focus[0]
+    answers = {a.question_id: a.answer for a in scorecard.model_answers}
+    refs = [q for q in questions if q.target_competency == weakest and answers.get(q.id)]
+    if not refs:
+        return base
+    lines = [base, "", f"Coach reference for '{weakest}' — private, never read aloud:"]
+    for q in refs[:2]:
+        text = q.text.get(language) or q.text.get("en") or next(iter(q.text.values()), "")
+        lines.append(f"- They were asked: {text}")
+        lines.append(f"  A strong answer covered: {answers[q.id]}")
+    lines.append(
+        "Use this only to judge whether the learner has arrived. Guide with "
+        "questions; do not recite the reference."
+    )
+    return "\n".join(lines)

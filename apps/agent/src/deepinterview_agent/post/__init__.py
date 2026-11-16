@@ -26,7 +26,7 @@ import asyncio
 from typing import TYPE_CHECKING
 
 from ..core.logging import get_logger
-from ..core.tracing import add_event, start_span, start_trace
+from ..core.tracing import add_event, annotate_io, annotate_trace_io, start_span, start_trace
 from ..shared_models import LanguageReport, ScoreCard
 from .evaluator import evaluate
 from .language_coach import coach
@@ -114,6 +114,29 @@ def _fallback_language_report() -> LanguageReport:
     )
 
 
+# Degraded-card copy lives in code (it by-passes the LLM output-language rule,
+# which only governs model-generated text), so it must be localized here or a
+# Chinese interview gets English placeholders on its partial report.
+_DEGRADED_COPY: dict[str, tuple[str, str]] = {
+    # (next_steps, summary)
+    "zh": (
+        "重新运行评分以生成完整书面报告。",
+        (
+            "部分评分卡：详细报告生成暂时不可用。能力评分已保留，"
+            "重新运行评分即可获得完整点评与参考回答。"
+        ),
+    ),
+}
+_DEFAULT_DEGRADED_COPY = (
+    "Re-run scoring to generate the full written report.",
+    (
+        "Partial scorecard: detailed report generation was temporarily "
+        "unavailable. Competency scores are preserved; re-run scoring for "
+        "the full narrative and model answers."
+    ),
+)
+
+
 def _degraded_scorecard(
     ctx: InterviewContext,
     comp_scores: list[CompetencyScore],
@@ -124,8 +147,14 @@ def _degraded_scorecard(
     Used when report generation (the narrative + model-answer LLM calls) fails
     but competency scoring and/or the language report succeeded. Preserves the
     numbers already computed so a transient model error never discards a
-    completed interview's work.
+    completed interview's work. Placeholder copy follows the interview's
+    primary language (English fallback for un-translated locales).
     """
+    try:
+        primary = ctx.plan.language_mode.primary
+    except AttributeError:  # defensive: legacy/incomplete plans keep English
+        primary = "en"
+    next_step, summary = _DEGRADED_COPY.get(primary, _DEFAULT_DEGRADED_COPY)
     return ScoreCard(
         overall_score=_overall_score(comp_scores),
         competency_scores=comp_scores,
@@ -133,28 +162,51 @@ def _degraded_scorecard(
         weaknesses=[],
         weak_competencies=_weak_competencies(comp_scores),
         model_answers=[],
-        next_steps=["Re-run scoring to generate the full written report."],
+        next_steps=[next_step],
         language_report=lang_report,
-        summary=(
-            "Partial scorecard: detailed report generation was temporarily "
-            "unavailable. Competency scores are preserved; re-run scoring for "
-            "the full narrative and model answers."
-        ),
+        summary=summary,
         coverage_pct=_coverage_pct(ctx),
     )
 
 
-async def _guarded(coro, *, label: str, timeout: float):
-    """Await ``coro`` with a timeout; on ANY error return ``None`` to fall back.
+async def _guarded(
+    factory,
+    *,
+    label: str,
+    timeout: float,
+    attempts: int = 1,
+    backoff_sec: float = 5.0,
+):
+    """Await ``factory()`` with a timeout; retry TIMEOUTS, fall back on anything else.
 
     The scoring pipeline is latency-tolerant but must never let one transient
-    provider error or hang destroy a completed interview's scorecard.
+    provider error or hang destroy a completed interview's scorecard. A hard
+    timeout on a CONGESTED provider is not a permanent failure — queued calls
+    clear within a minute — so on timeout the stage is re-invoked (up to
+    ``attempts`` tries, sleeping ``backoff_sec`` in between). Non-timeout errors
+    are assumed deterministic and degrade immediately, exactly once.
     """
-    try:
-        return await asyncio.wait_for(coro, timeout=timeout)
-    except Exception:
-        log.exception("post: scoring stage %r failed; degrading", label)
-        return None
+    for attempt in range(1, max(1, attempts) + 1):
+        try:
+            return await asyncio.wait_for(factory(), timeout=timeout)
+        except TimeoutError:
+            if attempt >= attempts:
+                log.warning(
+                    "post: scoring stage %r timed out after %d attempt(s); degrading",
+                    label,
+                    attempt,
+                )
+                return None
+            log.warning(
+                "post: scoring stage %r timed out (attempt %d/%d); retrying",
+                label,
+                attempt,
+                attempts,
+            )
+            await asyncio.sleep(backoff_sec)
+        except Exception:
+            log.exception("post: scoring stage %r failed; degrading", label)
+            return None
 
 
 async def _maybe_distill_skill(session_id: str, deps: Deps) -> None:
@@ -193,28 +245,39 @@ def _scoring_lock(session_id: str) -> asyncio.Lock:
     return lock
 
 
-async def run_score(req: ScoreRequest, deps: Deps) -> ScoreCard:
+async def run_score(req: ScoreRequest, deps: Deps, *, force: bool = False) -> ScoreCard:
     """Score an interview session and return (and persist) its ``ScoreCard``.
 
     Each stage (evaluate / coach / report) is individually guarded with a
-    timeout and a structured fallback, so a transient provider failure degrades
-    the scorecard rather than raising (which would 500 the API and leave the
-    session stuck mid-scoring). Whenever a context exists the resulting card is
-    persisted and the session is marked ``complete``.
+    timeout, timeout retries, and a structured fallback, so a transient
+    provider failure degrades the scorecard rather than raising (which would
+    500 the API and leave the session stuck mid-scoring). Whenever a context
+    exists the resulting card is persisted and the session is marked
+    ``complete``.
+
+    ``force=True`` re-runs the pipeline even on an already-scored session —
+    the real door behind the degraded card's "re-run scoring" advice.
     """
     # Serialize concurrent scorings of the same session (see _scoring_locks): the
     # loser waits and then hits the idempotency short-circuit below instead of
     # re-running the pipeline.
     async with _scoring_lock(req.session_id):
-        return await _run_score_locked(req, deps)
+        return await _run_score_locked(req, deps, force=force)
 
 
-async def _run_score_locked(req: ScoreRequest, deps: Deps) -> ScoreCard:
+async def _run_score_locked(req: ScoreRequest, deps: Deps, *, force: bool = False) -> ScoreCard:
     # Idempotency: scoring re-runs the full paid LLM pipeline, so a retry /
     # double-click against an already-scored session returns the persisted card
-    # instead of re-billing and overwriting it.
+    # instead of re-billing and overwriting it. EXCEPT with force: a degraded
+    # card is persisted as "complete", so without this door its own "re-run
+    # scoring" advice would be unactionable.
     view = await deps.repo.get_session_view(req.session_id)
-    if view is not None and view.status == "complete" and view.scorecard is not None:
+    if (
+        not force
+        and view is not None
+        and view.status == "complete"
+        and view.scorecard is not None
+    ):
         log.info("post: session %s already scored; returning persisted card", req.session_id)
         return view.scorecard
 
@@ -239,12 +302,21 @@ async def _run_score_locked(req: ScoreRequest, deps: Deps) -> ScoreCard:
         return _no_answers_scorecard(req.session_id)
 
     timeout = deps.settings.score_stage_timeout_sec
+    attempts = deps.settings.score_stage_attempts
+    backoff = deps.settings.score_stage_retry_backoff_sec
 
     # Trace the scoring work so `deepinterview traces` and GET /api/traces show
     # per-stage spans + LLM calls for this session. No-op when disabled.
     with start_trace("score", session_id=req.session_id):
         with start_span("post.evaluate"):
-            comp_scores = await _guarded(evaluate(ctx, deps), label="evaluate", timeout=timeout)
+            comp_scores = await _guarded(
+                lambda: evaluate(ctx, deps),
+                label="evaluate",
+                timeout=timeout,
+                attempts=attempts,
+                backoff_sec=backoff,
+            )
+            annotate_io(input_obj={"answers": len(ctx.answers)}, output_obj=comp_scores)
         if comp_scores is None:
             # The WHOLE evaluate stage failed for an interview that HAS answers
             # (per-question failures are isolated inside evaluate; None means the
@@ -261,21 +333,40 @@ async def _run_score_locked(req: ScoreRequest, deps: Deps) -> ScoreCard:
         if deps.settings.enable_score_verifier:
             with start_span("post.verify"):
                 verified = await _guarded(
-                    verify_scores(ctx, comp_scores, deps), label="verify", timeout=timeout
+                    lambda: verify_scores(ctx, comp_scores, deps),
+                    label="verify",
+                    timeout=timeout,
+                    attempts=attempts,
+                    backoff_sec=backoff,
+                )
+                annotate_io(
+                    input_obj={"competencies": len(comp_scores)}, output_obj=verified
                 )
             if verified is not None:
                 comp_scores = verified
 
         with start_span("post.coach"):
-            lang_report = await _guarded(coach(ctx, deps), label="coach", timeout=timeout)
+            lang_report = await _guarded(
+                lambda: coach(ctx, deps),
+                label="coach",
+                timeout=timeout,
+                attempts=attempts,
+                backoff_sec=backoff,
+            )
+            annotate_io(input_obj={"answers": len(ctx.answers)}, output_obj=lang_report)
         if lang_report is None:
             lang_report = _fallback_language_report()
 
         with start_span("post.report"):
             scorecard = await _guarded(
-                generate_report(ctx, comp_scores, lang_report, deps),
+                lambda: generate_report(ctx, comp_scores, lang_report, deps),
                 label="generate_report",
                 timeout=timeout,
+                attempts=attempts,
+                backoff_sec=backoff,
+            )
+            annotate_io(
+                input_obj={"competencies": len(comp_scores)}, output_obj=scorecard
             )
         if scorecard is None:
             scorecard = _degraded_scorecard(ctx, comp_scores, lang_report)
@@ -285,6 +376,13 @@ async def _run_score_locked(req: ScoreRequest, deps: Deps) -> ScoreCard:
         add_event(
             "score.complete",
             {"overall": scorecard.overall_score, "competencies": len(scorecard.competency_scores)},
+        )
+        annotate_trace_io(
+            input_obj={"questions": len(ctx.plan.questions), "answers": len(ctx.answers)},
+            output_obj={
+                "overall_score": scorecard.overall_score,
+                "competency_scores": scorecard.competency_scores,
+            },
         )
 
         # Closed-loop (WP-10): propose a reusable playbook delta. Off by default,

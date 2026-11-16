@@ -2,13 +2,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import { createInterviewToken } from "../lib/livekit";
+import { createCoachToken, createInterviewToken, coachRoomName } from "../lib/livekit";
 
 const KEYS = [
   "LIVEKIT_URL",
   "LIVEKIT_API_KEY",
   "LIVEKIT_API_SECRET",
   "LIVEKIT_AGENT_NAME",
+  "LIVEKIT_COACH_AGENT_NAME",
 ] as const;
 
 const saved = new Map<string, string | undefined>();
@@ -84,5 +85,52 @@ describe("createInterviewToken explicit agent dispatch (issue #67)", () => {
     expect(JSON.parse(roomConfig.agents[0]?.metadata ?? "{}")).toEqual({
       session_id: "sess_abc",
     });
+  });
+});
+
+describe("createCoachToken (spoken Socratic coach room)", () => {
+  it("routes the COACH worker into a prefixed room with the raw session id", async () => {
+    snapshot();
+    setLiveKitEnv();
+
+    const { token, url } = await createCoachToken({
+      sessionId: "sess_123",
+      identity: "coach-dev-sess_123",
+    });
+
+    expect(url).toBe("wss://test.livekit.cloud");
+    const payload = decodePayload(token);
+    // The room is prefixed — it can never be the live interview room itself.
+    expect(coachRoomName("sess_123")).toBe("coach_sess_123");
+    expect((payload.video as { room: string }).room).toBe("coach_sess_123");
+    const roomConfig = payload.roomConfig as {
+      agents: { agentName: string; metadata: string }[];
+    };
+    expect(roomConfig.agents).toHaveLength(1);
+    // Default coach dispatch name — must match worker_coach's agent_name
+    // default, and must NOT be the interviewer's name (job cross-routing).
+    expect(roomConfig.agents[0]?.agentName).toBe("deepinterview-coach");
+    // Metadata carries the RAW session id — worker_coach resolves the
+    // InterviewContext from it, not by parsing the prefixed room name.
+    expect(JSON.parse(roomConfig.agents[0]?.metadata ?? "{}")).toEqual({
+      session_id: "sess_123",
+    });
+  });
+
+  it("honors LIVEKIT_COACH_AGENT_NAME so web and coach worker stay in sync", async () => {
+    snapshot();
+    setLiveKitEnv();
+    process.env.LIVEKIT_COACH_AGENT_NAME = "custom-coach";
+
+    const { token } = await createCoachToken({
+      sessionId: "sess_abc",
+      identity: "user-1",
+    });
+
+    const payload = decodePayload(token);
+    const roomConfig = payload.roomConfig as {
+      agents: { agentName: string }[];
+    };
+    expect(roomConfig.agents[0]?.agentName).toBe("custom-coach");
   });
 });

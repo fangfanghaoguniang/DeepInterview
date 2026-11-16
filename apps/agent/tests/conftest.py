@@ -40,3 +40,11 @@ if os.environ.get("DEEPINTERVIEW_TEST_USE_ENV") != "1":
     # Tests for tracing itself (test_tracing.py) opt back in per-test via
     # ``tracing.init_tracing(enabled=True, trace_dir=tmp_path)``.
     os.environ["TRACE_ENABLED"] = "0"
+    # Hosted tracing must never fire from the test process either: Settings
+    # reads the developer's real .env (pydantic env_file) and create_app()
+    # calls init_observability() — with live keys present, test spans export
+    # straight into the developer's Langfuse project (observed 2026-11-13).
+    # Environment variables outrank the .env file, so empty strings here
+    # neutralize whatever credentials the checkout carries.
+    for _var in ("LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "SENTRY_DSN"):
+        os.environ[_var] = ""

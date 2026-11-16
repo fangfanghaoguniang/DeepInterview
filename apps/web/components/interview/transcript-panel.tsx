@@ -40,6 +40,12 @@ export interface TranscriptPanelProps {
    * page with no announcement of what changed).
    */
   scrollRegionRef?: React.Ref<HTMLDivElement>;
+  /**
+   * Override the label for the non-candidate speaker ("Interviewer" by
+   * default). The coach room passes "教练 / Coach" so the transcript speaks
+   * the room's actual persona; `interviewer` stays the Turn role either way.
+   */
+  otherLabel?: string;
 }
 
 export function TranscriptPanel({
@@ -47,6 +53,7 @@ export function TranscriptPanel({
   live = false,
   className,
   scrollRegionRef,
+  otherLabel,
 }: TranscriptPanelProps) {
   const messages = useMessages();
   const scrollRef = React.useRef<HTMLDivElement>(null);
@@ -137,7 +144,7 @@ export function TranscriptPanel({
               >
                 {(turn.role === "candidate"
                   ? t(messages, "interview.roleYou")
-                  : t(messages, "interview.roleInterviewer")
+                  : otherLabel ?? t(messages, "interview.roleInterviewer")
                 ).toUpperCase()}
               </span>
               <p

@@ -7,11 +7,20 @@ import { t } from "@/lib/i18n";
 import { getServerMessages } from "@/lib/i18n/server";
 
 /**
- * Voice Socratic mode entry point. Reuses the live interview voice loop
- * (LiveKit STT→LLM→TTS) but in a teaching posture: the coach asks leading
- * questions instead of grading. Links to the coach room (placeholder target).
+ * Voice Socratic mode entry point. Links into the real coach room
+ * (`/interview/coach?session=…`) which mints a LiveKit token for the coach
+ * worker over THIS session's scorecard — the coach asks leading questions
+ * instead of grading, reusing the interview's live voice loop.
+ *
+ * Only a REAL linked session can be coached (the briefing material comes
+ * from its report), so on the sample-preview page the button is honestly
+ * disabled with the reason — never a link that goes nowhere.
  */
-export async function SocraticCta() {
+export async function SocraticCta({
+  sessionId,
+}: {
+  sessionId: string | null;
+}) {
   const m = await getServerMessages();
   return (
     <Card className="bg-ink text-white">
@@ -36,18 +45,34 @@ export async function SocraticCta() {
           </div>
         </div>
 
-        <Link
-          href="/interview/coach?mode=socratic"
-          className="no-underline md:shrink-0"
-        >
-          <Button
-            variant="out"
-            className="border-white/30 bg-white/0 text-white hover:border-white hover:bg-white/10"
+        {sessionId ? (
+          <Link
+            href={`/interview/coach?session=${encodeURIComponent(sessionId)}`}
+            className="no-underline md:shrink-0"
           >
-            {t(m, "prep.socraticStart")}
-            <ArrowRight className="h-4 w-4" aria-hidden />
-          </Button>
-        </Link>
+            <Button
+              variant="out"
+              className="border-white/30 bg-white/0 text-white hover:border-white hover:bg-white/10"
+            >
+              {t(m, "prep.socraticStart")}
+              <ArrowRight className="h-4 w-4" aria-hidden />
+            </Button>
+          </Link>
+        ) : (
+          <div className="flex flex-col items-start gap-1.5 md:items-end md:shrink-0">
+            <Button
+              variant="out"
+              disabled
+              aria-disabled
+              className="border-white/30 bg-white/0 text-white/60"
+            >
+              {t(m, "prep.socraticStart")}
+            </Button>
+            <p className="max-w-xs text-[12px] leading-relaxed text-white/50">
+              {t(m, "coach.needsSession")}
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

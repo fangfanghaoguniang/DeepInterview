@@ -33,6 +33,12 @@ export interface ControlBarProps {
   /** Start/stop recording. When omitted the push-to-talk button is not
    *  rendered, so preview/offline shells keep their original two-control chrome. */
   onToggleRecord?: () => void;
+  /**
+   * Override the hang-up button's idle label ("End interview" by default).
+   * The coach room passes "结束练习 / End practice" — the action is the same,
+   * the room's stakes are not. The arm-to-confirm and ending texts stay shared.
+   */
+  endLabel?: string;
 }
 
 export function ControlBar({
@@ -46,6 +52,7 @@ export function ControlBar({
   recordDisabled = false,
   recordSeconds = 0,
   onToggleRecord,
+  endLabel,
 }: ControlBarProps) {
   const messages = useMessages();
   // Two-tap end: the first tap arms ("Tap again to end"), the second fires.
@@ -157,7 +164,7 @@ export function ControlBar({
         aria-label={
           armed
             ? t(messages, "interview.confirmEnd")
-            : t(messages, "interview.end")
+            : endLabel ?? t(messages, "interview.end")
         }
         aria-live="polite"
         className={cn(
@@ -176,7 +183,7 @@ export function ControlBar({
           ? t(messages, "interview.ending")
           : armed
             ? t(messages, "interview.confirmEnd")
-            : t(messages, "interview.endButton")}
+            : (endLabel ?? t(messages, "interview.endButton"))}
       </button>
     </div>
   );

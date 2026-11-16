@@ -43,6 +43,16 @@ export const serverEnv = {
   get livekitAgentName(): string {
     return process.env.LIVEKIT_AGENT_NAME || "deepinterview-interviewer";
   },
+  /**
+   * Dispatch name the SPOKEN COACH worker registers under. Kept separate from
+   * the interviewer's name so an interview token can never route a coach job
+   * (or vice versa) — LiveKit matches on the exact name. Both sides default to
+   * "deepinterview-coach", so leaving LIVEKIT_COACH_AGENT_NAME unset in
+   * .env.local AND apps/agent/.env also lines them up.
+   */
+  get livekitCoachAgentName(): string {
+    return process.env.LIVEKIT_COACH_AGENT_NAME || "deepinterview-coach";
+  },
   get r2AccountId(): string | undefined {
     return process.env.R2_ACCOUNT_ID || undefined;
   },

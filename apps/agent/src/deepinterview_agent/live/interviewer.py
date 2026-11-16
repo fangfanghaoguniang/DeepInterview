@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from livekit.agents import Agent, RunContext, function_tool
 
+from ..prep.prompts import language_name
 from . import state
 from .state import InterviewUserdata
 
@@ -52,7 +53,7 @@ def build_instructions(ud: InterviewUserdata) -> str:
         "You are a senior, friendly technical interviewer running a real-time "
         "voice mock interview. Speak naturally and concisely.\n\n"
         f"{summary}\n\n"
-        f"Primary language: {primary}.\n"
+        f"Primary language: {language_name(primary)}.\n"
         f"Current question to ask: {question_line}\n\n"
         "Ask this one question, listen to the full answer, then ask at most one "
         "light follow-up. When the answer is complete, call save_answer with the "
@@ -101,7 +102,7 @@ class Interviewer(Agent):
         first_name = (ud.ctx.candidate.name or "there").split()[0]
         self.session.generate_reply(
             instructions=(
-                f"Open the interview now, speaking in {primary}. Warmly greet the "
+                f"Open the interview now, speaking in {language_name(primary)}. Warmly greet the "
                 f"candidate by first name ({first_name}) in one short sentence and "
                 f"say you'll be running their mock interview for the {ud.ctx.job.title} "
                 f"role at {ud.ctx.job.company_name}. Then ask this first question and "

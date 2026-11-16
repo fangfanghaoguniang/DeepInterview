@@ -51,17 +51,67 @@ export function requestScore(body: ScoreRequest): Promise<ScoreResponse> {
 }
 
 /**
- * Build a Study Coach plan from a scorecard's weak competencies (server-side).
+ * Build a Study Coach plan from a scorecard's growth items (server-side).
  * `language` sets the output language of the module text; omitted → the
- * backend's "en" default (legacy behavior).
+ * backend's "en" default (legacy behavior). `sessionId` (when known) makes the
+ * backend merge that session's persisted practice mastery into the module
+ * statuses, so a re-visit shows what was already practiced.
  */
 export function requestCoachPlan(
   scorecard: ScoreCard,
   language?: Language,
+  sessionId?: string,
 ): Promise<StudyPlan> {
   return postJson(
     "/api/coach/plan",
-    { scorecard, ...(language ? { language } : {}) },
+    {
+      scorecard,
+      ...(language ? { language } : {}),
+      ...(sessionId ? { session_id: sessionId } : {}),
+    },
     (d) => StudyPlanSchema.parse(d),
+  );
+}
+
+/** A targeted practice question the coach generated for an overflow growth
+ * competency, bundled with a reference answer (mirrors the agent's DrillItem). */
+export interface CoachDrillItem {
+  id: string;
+  competency: string;
+  text: Record<string, string>;
+  answer: string;
+}
+
+/**
+ * Fetch (and lazily generate) the targeted drills for ONE competency on a real
+ * session. The backend is idempotent: a re-request returns the stored set with
+ * no regeneration. Returns [] on any non-array shape (fail closed to no drills).
+ */
+export function requestCoachDrill(
+  sessionId: string,
+  competency: string,
+  language?: Language,
+): Promise<CoachDrillItem[]> {
+  return postJson(
+    "/api/coach/drill",
+    { session_id: sessionId, competency, ...(language ? { language } : {}) },
+    (d) => {
+      const raw = (d as { items?: unknown }).items;
+      if (!Array.isArray(raw)) return [];
+      return raw
+        .filter(
+          (x): x is CoachDrillItem =>
+            typeof x === "object" &&
+            x !== null &&
+            typeof (x as { id?: unknown }).id === "string" &&
+            typeof (x as { answer?: unknown }).answer === "string",
+        )
+        .map((x) => ({
+          id: x.id,
+          competency: x.competency,
+          text: x.text ?? {},
+          answer: x.answer,
+        }));
+    },
   );
 }

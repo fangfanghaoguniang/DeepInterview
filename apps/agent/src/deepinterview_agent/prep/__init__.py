@@ -17,7 +17,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ..core.logging import get_logger
-from ..core.tracing import add_event, start_trace
+from ..core.tracing import add_event, annotate_trace_io, start_trace
 from ..core.validation import validate_prep_inputs
 from ..shared_models import InterviewContext
 from .graph import build_prep_graph
@@ -158,6 +158,21 @@ async def run_prep_for_session(
             await deps.repo.save_context(session_id, ctx)
             await deps.repo.update_status(session_id, "ready")
             add_event("prep.ready", {"questions": len(ctx.plan.questions)})
+            # Trace-root overview so the Sessions card / trace header isn't blank.
+            # Detailed artifacts live on the per-node spans; this is just the
+            # headline: what went in (inputs present) and what came out (plan).
+            annotate_trace_io(
+                input_obj={
+                    "company": req.company,
+                    "has_cv": bool(cv_text),
+                    "jd_chars": len(req.jd_text),
+                    "language": req.language_mode.primary,
+                },
+                output_obj={
+                    "questions": len(ctx.plan.questions),
+                    "time_budget_min": ctx.plan.time_budget_min,
+                },
+            )
 
             # Close the WP-8 loop: ingest the prep materials into THIS session's
             # knowledge store so the Study Coach (which retrieves by session_id) can

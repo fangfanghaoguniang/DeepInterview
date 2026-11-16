@@ -17,10 +17,10 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from ..core.logging import get_logger
-from ..shared_models import ModelAnswer, ScoreCard
+from ..shared_models import GrowthItem, ModelAnswer, ScoreCard
 from .prompts import model_answer_prompts, report_summary_prompts
 
 if TYPE_CHECKING:
@@ -43,6 +43,10 @@ class _ReportNarrative(BaseModel):
     weaknesses: list[str]
     next_steps: list[str]
     summary: str
+    # Structured weaknesses (prose + competency key) the coach plans from.
+    # Defaults empty so an LLM that omits it still validates — the coach then
+    # falls back to the score-banded weak_competencies, never crashing.
+    growth_items: list[GrowthItem] = Field(default_factory=list)
 
 
 def _overall_score(comp_scores: list[CompetencyScore]) -> float:
@@ -144,5 +148,6 @@ async def generate_report(
         next_steps=narrative.next_steps,
         language_report=lang_report,
         summary=narrative.summary,
+        growth_items=narrative.growth_items,
         coverage_pct=_coverage_pct(ctx),
     )

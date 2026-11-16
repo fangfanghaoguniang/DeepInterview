@@ -94,6 +94,57 @@ def test_save_coach_transcript_does_not_touch_interview_transcript() -> None:
     assert row.coach_transcript == coach
 
 
+def test_practice_state_round_trips_per_competency() -> None:
+    """Memory path: fresh session reads {}, unknown reads None, and setting one
+    competency must not clobber the others (the coach grades one at a time)."""
+    repo = MemoryRepository()
+    session_id = _run(repo.create_session(_prep_request()))
+    assert _run(repo.get_practice_state(session_id)) == {}
+    assert _run(repo.get_practice_state("sess_missing")) is None
+
+    _run(repo.set_practice_state(session_id, "System Design", "shaky"))
+    _run(repo.set_practice_state(session_id, "Leadership", "learning"))
+    assert _run(repo.get_practice_state(session_id)) == {
+        "System Design": "shaky",
+        "Leadership": "learning",
+    }
+    # Re-grade one competency; the other survives.
+    _run(repo.set_practice_state(session_id, "System Design", "mastered"))
+    assert _run(repo.get_practice_state(session_id)) == {
+        "System Design": "mastered",
+        "Leadership": "learning",
+    }
+
+
+def test_drill_items_round_trip_and_upsert_by_id() -> None:
+    """Memory path: fresh session reads [], unknown reads None, re-adding the
+    same drill id updates in place (no duplicate), a new id appends."""
+    repo = MemoryRepository()
+    session_id = _run(repo.create_session(_prep_request()))
+    assert _run(repo.get_drill_items(session_id)) == []
+    assert _run(repo.get_drill_items("sess_missing")) is None
+
+    a = [{"id": "drill_1", "competency": "X", "text": {"en": "q1"}, "answer": "a1"}]
+    _run(repo.add_drill_items(session_id, a))
+    assert _run(repo.get_drill_items(session_id)) == a
+
+    _run(
+        repo.add_drill_items(
+            session_id,
+            [{"id": "drill_1", "competency": "X", "text": {"en": "q1b"}, "answer": "a1b"}],
+        )
+    )
+    _run(
+        repo.add_drill_items(
+            session_id,
+            [{"id": "drill_2", "competency": "Y", "text": {"en": "q2"}, "answer": "a2"}],
+        )
+    )
+    stored = _run(repo.get_drill_items(session_id))
+    assert {d["id"] for d in stored} == {"drill_1", "drill_2"}
+    assert next(d for d in stored if d["id"] == "drill_1")["answer"] == "a1b"
+
+
 def test_update_status_and_missing_load() -> None:
     repo = MemoryRepository()
     session_id = _run(repo.create_session(_prep_request()))
@@ -259,6 +310,47 @@ def test_supabase_save_scorecard_payload_is_json_encodable() -> None:
     assert isinstance(sc, ScoreCard)
     _run(repo.save_scorecard(sid, sc))  # raises in execute() if non-JSON
     assert fake.rows[sid]["scorecard"] == sc.model_dump()
+
+
+def test_supabase_set_practice_state_read_modify_writes_single_key() -> None:
+    """Supabase path mirrors mark_progress: read the blob, set one competency
+    key, write it back — and skip the UPDATE when the value is unchanged."""
+    repo, fake = _supabase_repo()
+    sid = _run(repo.create_session(_prep_request()))
+    assert _run(repo.get_practice_state(sid)) == {}
+
+    _run(repo.set_practice_state(sid, "System Design", "shaky"))
+    _run(repo.set_practice_state(sid, "Leadership", "learning"))
+    assert fake.rows[sid]["practice_state"] == {
+        "System Design": "shaky",
+        "Leadership": "learning",
+    }
+    assert _run(repo.get_practice_state(sid)) == {
+        "System Design": "shaky",
+        "Leadership": "learning",
+    }
+
+    # Idempotent re-set issues no new update against the row.
+    updates_before = len([op for op, *_ in fake.log if op == "update"])
+    _run(repo.set_practice_state(sid, "System Design", "shaky"))
+    assert len([op for op, *_ in fake.log if op == "update"]) == updates_before
+
+
+def test_supabase_add_drill_items_read_modify_upserts_by_id() -> None:
+    """Supabase path mirrors the practice-state read-modify-write: drills land
+    in the ``drill_items`` column and a byte-identical re-add issues no update."""
+    repo, fake = _supabase_repo()
+    sid = _run(repo.create_session(_prep_request()))
+    assert _run(repo.get_drill_items(sid)) == []
+
+    items = [{"id": "drill_1", "competency": "X", "text": {"en": "q"}, "answer": "a"}]
+    merged = _run(repo.add_drill_items(sid, items))
+    assert merged == items
+    assert fake.rows[sid]["drill_items"] == items
+
+    updates_before = len([op for op, *_ in fake.log if op == "update"])
+    _run(repo.add_drill_items(sid, items))
+    assert len([op for op, *_ in fake.log if op == "update"]) == updates_before
 
 
 def test_supabase_append_answer_read_modify_writes_the_context_blob() -> None:

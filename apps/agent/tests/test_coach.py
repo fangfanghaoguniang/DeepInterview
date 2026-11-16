@@ -8,12 +8,13 @@ from __future__ import annotations
 
 import asyncio
 
-from deepinterview_agent.coach import run_coach_chat, run_coach_plan
+from deepinterview_agent.coach import run_coach_chat, run_coach_plan, run_generate_drills
 from deepinterview_agent.core.deps import build_deps
 from deepinterview_agent.shared_models import (
     Citation,
     CoachChatRequest,
     CompetencyScore,
+    GrowthItem,
     LanguageReport,
     ScoreCard,
     StudyPlan,
@@ -69,6 +70,114 @@ def test_coach_plan_empty_when_no_weak() -> None:
     assert plan.modules == []
     assert plan.total_min == 0
     assert plan.summary  # a non-empty, encouraging message
+
+
+def _growth_scorecard(
+    growth: list[tuple[str, str]], scores: list[CompetencyScore]
+) -> ScoreCard:
+    """ScoreCard carrying structured ``growth_items`` (the single source the
+    report page shows) plus the underlying ``competency_scores``."""
+    return ScoreCard(
+        overall_score=2.5,
+        competency_scores=scores,
+        strengths=[],
+        weaknesses=[g[1] for g in growth],
+        weak_competencies=[s.competency for s in scores if s.level in {"weak", "developing"}],
+        growth_items=[GrowthItem(competency=c, text=txt) for c, txt in growth],
+        model_answers=[],
+        next_steps=[],
+        language_report=LanguageReport(
+            fluency_score=3.0,
+            filler_word_count=2,
+            clarity_score=3.0,
+            code_switching_notes="",
+            pronunciation_notes="",
+            summary="ok",
+        ),
+        summary="test scorecard",
+    )
+
+
+def test_coach_plan_builds_from_growth_items_no_score_band() -> None:
+    """Form Y: EVERY growth item becomes a module — a "solid" 3.3 competency is
+    not filtered out the way score-banded ``weak_competencies`` would drop it.
+    Modules order weakest-first by the competency's score."""
+    deps = build_deps()
+    scores = [
+        CompetencyScore(competency="System Design", score=3.3, evidence="thin", level="solid"),
+        CompetencyScore(competency="Leadership", score=2.4, evidence="narrow", level="developing"),
+        CompetencyScore(competency="Behavioral", score=1.8, evidence="skips STAR", level="weak"),
+    ]
+    # Report lists all three, in an arbitrary source order.
+    growth = [
+        ("System Design", "glossed capacity"),
+        ("Behavioral", "skipped situation"),
+        ("Leadership", "team-only scope"),
+    ]
+    sc = _growth_scorecard(growth, scores)
+    # Sanity: the score-band list the OLD code used would have kept only two.
+    assert sc.weak_competencies == ["Leadership", "Behavioral"]
+
+    plan = asyncio.run(run_coach_plan(sc, deps))
+
+    # All three modules survive the (now-removed) band filter, weakest-first.
+    assert [m.competency for m in plan.modules] == ["Behavioral", "Leadership", "System Design"]
+    assert plan.total_min == sum(m.est_min for m in plan.modules)
+
+
+def test_coach_plan_growth_item_overflow_sorts_last() -> None:
+    """A growth item naming a competency the interview never scored (a JD gap)
+    still becomes a module and sorts after every scored competency."""
+    deps = build_deps()
+    scores = [
+        CompetencyScore(competency="Behavioral", score=1.8, evidence="skips STAR", level="weak"),
+    ]
+    growth = [("Concurrency", "never probed"), ("Behavioral", "skipped situation")]
+    sc = _growth_scorecard(growth, scores)
+
+    plan = asyncio.run(run_coach_plan(sc, deps))
+
+    assert [m.competency for m in plan.modules] == ["Behavioral", "Concurrency"]
+    # The unscored overflow competency defaults to the "learning" mastery state.
+    concurrency = next(m for m in plan.modules if m.competency == "Concurrency")
+    assert concurrency.status == "learning"
+
+
+def test_coach_plan_practice_state_overrides_status() -> None:
+    """A persisted mastery state wins over the score-band default for the
+    competency it names; every other module keeps its derived status."""
+    deps = build_deps()
+    scores = [
+        CompetencyScore(competency="Behavioral", score=1.8, evidence="x", level="weak"),
+        CompetencyScore(competency="Leadership", score=2.4, evidence="y", level="developing"),
+    ]
+    growth = [("Behavioral", "skips STAR"), ("Leadership", "team-only scope")]
+    sc = _growth_scorecard(growth, scores)
+
+    # Behavioral was drilled to mastery on this session; Leadership untouched.
+    plan = asyncio.run(run_coach_plan(sc, deps, practice_state={"Behavioral": "mastered"}))
+    by_comp = {m.competency: m.status for m in plan.modules}
+    assert by_comp["Behavioral"] == "mastered"  # persisted override wins
+    assert by_comp["Leadership"] == "learning"  # developing -> derived "learning"
+
+
+def test_generate_drills_returns_self_contained_items() -> None:
+    """The drill generator yields items with an English-guaranteed text blob and
+    a reference answer (so the frontend can render a card without a model
+    answer); a non-English target also carries the primary-language key."""
+    deps = build_deps()
+    drills = asyncio.run(run_generate_drills("Concurrency", "never probed", "en", deps))
+    assert drills, "MockLLM yields at least one drill question"
+    d = drills[0]
+    assert d.competency == "Concurrency"
+    assert d.text.get("en")  # LocalizedText always carries a non-empty "en"
+    assert d.answer
+    assert d.id.startswith("drill_")
+
+    # Chinese target: both the English gloss and the primary key are present.
+    drills_zh = asyncio.run(run_generate_drills("Concurrency", "", "zh", deps))
+    assert drills_zh[0].text.get("zh")
+    assert drills_zh[0].text.get("en")
 
 
 def test_study_module_prompts_output_language_rule() -> None:

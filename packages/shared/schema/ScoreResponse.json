@@ -121,6 +121,25 @@
         "summary": {
           "type": "string"
         },
+        "growth_items": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": {
+                "type": "string"
+              },
+              "competency": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "text",
+              "competency"
+            ]
+          }
+        },
         "coverage_pct": {
           "default": 1,
           "type": "number"

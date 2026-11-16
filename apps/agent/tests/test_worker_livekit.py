@@ -38,7 +38,9 @@ What is pinned, and why it must not regress:
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import json
+import time
 from collections.abc import Callable
 from dataclasses import replace
 from types import SimpleNamespace
@@ -53,6 +55,7 @@ from deepinterview_agent import worker
 from deepinterview_agent.api.session import LiveResultRequest
 from deepinterview_agent.core.deps import build_deps
 from deepinterview_agent.live import state
+from deepinterview_agent.live.interviewer import build_instructions
 from deepinterview_agent.live.state import InterviewUserdata
 from deepinterview_agent.prep import run_prep
 from deepinterview_agent.shared_models import (
@@ -173,6 +176,83 @@ def test_wire_transcript_capture_tags_turns() -> None:
         "question_id": "q_behavioral",
     }
     assert len(ud.transcript) == 2
+
+
+# --- trace pinning (the only-turn-in-the-black-box failure class) ------------
+
+
+def _pinned_trace(tmp_path, monkeypatch):
+    """Open a live trace against a tmp trace dir; return (trace_cm, events_fn)."""
+    from deepinterview_agent.core import tracing
+
+    monkeypatch.setenv("TRACE_ENABLED", "1")
+    tracing.init_tracing(enabled=True, trace_dir=tmp_path, include_prompts=False)
+    trace = tracing.start_trace("live")
+    tid = trace.__enter__()
+
+    def events() -> list[dict]:
+        lines = (tmp_path / f"{tid}.jsonl").read_text().splitlines()
+        return [json.loads(line) for line in lines]
+
+    return trace, tid, events
+
+
+def test_capture_turn_events_survive_sdk_context(tmp_path, monkeypatch) -> None:
+    """With ``trace_id`` pinned, turns fired from a foreign asyncio context land.
+
+    LiveKit delivers conversation_item_added from SDK-owned tasks where the
+    entrypoint's trace ContextVar is invisible. Before pinning, every turn
+    after the opening silently vanished from the trace — the exact blind spot
+    that misdirected a stall investigation. The emit below runs in a truly
+    empty Context to reproduce that isolation offline.
+    """
+    trace, _tid, events = _pinned_trace(tmp_path, monkeypatch)
+    try:
+        ud = _userdata_two_sections()
+        session = FakeAgentSession()
+        worker.wire_transcript_capture(session, ud, trace_id=_tid)
+        contextvars.Context().run(
+            session.emit, "conversation_item_added", _item_event("user", "a real answer")
+        )
+    finally:
+        trace.__exit__(None, None, None)
+        from deepinterview_agent.core import tracing
+
+        tracing.reset_tracing()
+    turns = [e for e in events() if e.get("name") == "turn"]
+    assert turns and turns[0]["attrs"]["role"] == "user"
+
+
+def test_pipeline_telemetry_lands_milestones(tmp_path, monkeypatch) -> None:
+    """pipe.transcript / pipe.agent_state milestones reach the trace across contexts.
+
+    These events are the stall dashboard: STT latency vs the commit window and
+    thinking/speaking transitions relative to the commit. They must survive
+    the same SDK-context isolation as turn events.
+    """
+    trace, _tid, events = _pinned_trace(tmp_path, monkeypatch)
+    try:
+        session = FakeAgentSession()
+        anchors = {"finish_ts": time.perf_counter()}
+        worker.wire_pipeline_telemetry(session, _tid, anchors)
+        contextvars.Context().run(
+            session.emit,
+            "user_input_transcribed",
+            SimpleNamespace(is_final=True, transcript="缓存击穿和雪崩的区别"),
+        )
+        contextvars.Context().run(
+            session.emit,
+            "agent_state_changed",
+            SimpleNamespace(new_state="thinking"),
+        )
+        assert anchors.get("last_transcript_chars") == 10
+    finally:
+        trace.__exit__(None, None, None)
+        from deepinterview_agent.core import tracing
+
+        tracing.reset_tracing()
+    names = [e.get("name") for e in events()]
+    assert "pipe.transcript" in names and "pipe.agent_state" in names
 
 
 def test_wire_transcript_capture_ignores_non_turns() -> None:
@@ -802,8 +882,11 @@ def test_build_turn_handling_is_purely_manual() -> None:
         handling = worker.build_turn_handling(lang)
         assert handling["turn_detection"] == "manual"
         assert "endpointing" not in handling
-        # Noise gating survives: raw VAD energy alone can't interrupt.
-        assert handling["interruption"] == {"min_words": 3}
+        # Interruptions are OFF entirely: the mic is muted while the
+        # interviewer speaks, so the word gate could only ever fire on the
+        # LATE transcript of an already-committed turn (the ghost-interruption
+        # incident). min_words stays as documented residual config.
+        assert handling["interruption"] == {"enabled": False, "min_words": 3}
 
     assert worker.FINISH_TURN_TOPIC == "finish_answer"
 
@@ -964,3 +1047,13 @@ def test_load_context_with_retry_gives_up(monkeypatch: pytest.MonkeyPatch) -> No
         worker._load_context_with_retry("sess_x", SimpleNamespace(), timeout_sec=0.1)
     )
     assert got is None
+
+
+def test_build_instructions_pins_language_name_not_code() -> None:
+    # The live loop must spell the language the way every other pipeline's
+    # output-language rule does — provider-facing NAME, never the bare code.
+    ud = _userdata_two_sections()
+    ud.ctx.plan.language_mode.primary = "zh"
+    text = build_instructions(ud)
+    assert "Primary language: Chinese." in text
+    assert "Primary language: zh." not in text

@@ -414,3 +414,92 @@ def test_reconstruct_answers_never_recovers_wrap_phase_speech() -> None:
 
     assert state.reconstruct_answers(ud) == 0
     assert ud.ctx.answers == []
+
+
+def test_save_answer_dedups_restatements_keeps_richer_text() -> None:
+    """Two-track logging (commit-time program record + the LLM's save_answer
+    tool) converges: a new transcript contained in — or containing — the last
+    record for the same question coalesces instead of appending, and the
+    richer text always wins.
+    """
+    ud = _userdata()
+    rich = "I rebuilt the payments retry queue and cut duplicate charges to zero."
+    first = state.save_answer(ud, transcript=rich, started_at="", ended_at="")
+
+    # A strict substring of what's saved is the same utterance — no new record.
+    same = state.save_answer(
+        ud, transcript="the payments retry queue", started_at="", ended_at=""
+    )
+    assert same is first
+    assert len(ud.ctx.answers) == 1
+
+    # A superset restatement upgrades the record in place (returns the held
+    # record; the program track never saves more than the tool track does).
+    dup = state.save_answer(ud, transcript=rich, started_at="", ended_at="")
+    assert dup is first
+    assert len(ud.ctx.answers) == 1
+
+
+def test_empty_save_answer_always_appends() -> None:
+    """The void signal must never dedup: ``save_answer("")`` has to be able to
+    trail a substantive record and void the question under last-wins indexing
+    (reconstruct_answers depends on exactly this shape).
+    """
+    ud = _userdata()
+    state.save_answer(
+        ud, transcript="A curated answer with some substance behind it.", started_at="", ended_at=""
+    )
+    voided = state.save_answer(ud, transcript="", started_at="", ended_at="")
+    assert len(ud.ctx.answers) == 2
+    assert voided.transcript == ""
+
+
+def test_record_committed_answer_logs_substantive_transcript() -> None:
+    """The worker's deterministic track records the committed STT text against
+    the current question without any LLM cooperation.
+    """
+    ud = _userdata()
+    q1 = state.current_question(ud)
+    assert q1 is not None
+    text = " ".join(f"word{i}" for i in range(12))
+
+    rec = state.record_committed_answer(ud, text)
+    assert rec is not None
+    assert rec.question_id == q1.id
+    assert ud.ctx.answers == [rec]
+
+
+def test_record_committed_answer_gates_thin_text() -> None:
+    """Acknowledgements below the recovery substance gate never enter the
+    scoring input (same ``_MIN_RECOVERED_WORDS`` boundary as reconstruct).
+    """
+    ud = _userdata()
+    assert state.record_committed_answer(ud, "yes, thanks") is None
+    assert state.record_committed_answer(ud, " ".join("tok" for i in range(11))) is None
+    assert ud.ctx.answers == []
+
+
+def test_record_committed_answer_skips_past_end_cursor() -> None:
+    """Wrap-phase speech has no current question to log against — skipped, just
+    like the other deterministic guards.
+    """
+    ud = _userdata()
+    ud.ctx.cursor = len(ud.ctx.plan.questions)
+    assert state.record_committed_answer(ud, " ".join("tok" for i in range(20))) is None
+    assert ud.ctx.answers == []
+
+
+def test_record_committed_answer_coalesces_with_tool_track() -> None:
+    """Program track then tool track (subset) → one record, richer text kept:
+    the double-logging dedup that keeps a two-track session from scoring the
+    same utterance twice.
+    """
+    ud = _userdata()
+    text = "I led the migration of twelve services to event sourcing with dual writes."
+    rec = state.record_committed_answer(ud, text)
+    assert rec is not None
+    dup = state.save_answer(
+        ud, transcript="event sourcing with dual writes", started_at="", ended_at=""
+    )
+    assert dup is rec
+    assert len(ud.ctx.answers) == 1

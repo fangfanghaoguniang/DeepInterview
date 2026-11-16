@@ -274,6 +274,25 @@ export const en = {
     typePlaceholderOffline: "Typed answers available once live",
     sendAnswer: "Send typed answer",
   },
+  coach: {
+    title: "Study Coach",
+    speakerCoach: "Coach",
+    endSession: "End practice",
+    connecting: "Connecting your coach…",
+    previewBody:
+      "LiveKit isn't configured, so the coach room can't connect. Set LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET to run spoken coaching.",
+    agentMissing:
+      "Your coach didn't show up",
+    agentMissingBody:
+      "The room is healthy but no coaching agent joined — the coach worker isn't running. Start it from apps/agent with `uv run python -m deepinterview_agent.worker_coach start`.",
+    backToPrep: "Back to prep",
+    needsSession:
+      "Finish a scored mock interview first — the coach builds its questions from your report.",
+    replayEyebrow: "Socratic coach",
+    replayTitle: "Last coaching session",
+    replayRounds: "{n} exchanges in this session",
+    replayClosing: "Where the coach left it",
+  },
   report: {
     title: "Your interview report",
     subtitle: "Where you were strong, and what to work on next.",
@@ -446,6 +465,9 @@ export const en = {
     eyebrow: "Gap → study path",
     title: "Your study plan",
     builtFrom: "Built from your last interview's weak areas",
+    noGapsTitle: "No growth areas to work on",
+    noGapsBody:
+      "Your last interview didn't surface any weak areas — nice work. Run another mock to stay sharp.",
     planSummary: "{n} modules · about {min} min.",
     minutesUnit: "min",
     start: "Start",

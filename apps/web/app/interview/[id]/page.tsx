@@ -7,7 +7,7 @@ import {
 import { getUser } from "@/lib/supabase/server";
 import { createInterviewToken } from "@/lib/livekit";
 import { getPersona } from "@/lib/personas";
-import { SessionViewSchema, type SessionView } from "@/lib/session";
+import { loadSessionView } from "@/lib/session-read";
 import { LiveRoom } from "@/components/interview/live-room";
 
 // Reads server-only config and calls the agent API per request; never prerender.
@@ -34,23 +34,11 @@ export const dynamic = "force-dynamic";
  */
 
 /**
- * Resolve the session from the agent (`GET /api/session/{id}`). Returns null
- * when the session is unknown, the body doesn't parse, or the agent is
- * unreachable — the token guard FAILS CLOSED (no verified session ⇒ no token).
+ * Resolve the session from the agent (`GET /api/session/{id}`, shared
+ * fail-closed read). Returns null when the session is unknown, the body
+ * doesn't parse, or the agent is unreachable — the token guard FAILS CLOSED
+ * (no verified session ⇒ no token).
  */
-async function loadSession(id: string): Promise<SessionView | null> {
-  try {
-    const res = await fetch(
-      `${serverEnv.agentApiUrl}/api/session/${encodeURIComponent(id)}`,
-      { cache: "no-store", signal: AbortSignal.timeout(15_000) },
-    );
-    if (!res.ok) return null;
-    const parsed = SessionViewSchema.safeParse(await res.json());
-    return parsed.success ? parsed.data : null;
-  } catch {
-    return null;
-  }
-}
 
 export default async function InterviewPage({
   params,
@@ -87,7 +75,7 @@ export default async function InterviewPage({
     // The session id IS the capability: verify it exists with the agent before
     // minting, and pin the LiveKit room to exactly the verified session id —
     // never a client-supplied room name.
-    const session = await loadSession(id);
+    const session = await loadSessionView(id);
     if (!session || session.session_id !== id) notFound();
 
     // Only mint a publish-capable token for a session that is still joinable.

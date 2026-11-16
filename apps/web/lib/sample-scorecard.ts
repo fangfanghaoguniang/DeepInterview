@@ -67,6 +67,24 @@ export const SAMPLE_SCORECARD: ScoreCard = {
     "Capacity and failure-mode reasoning is thin in system-design answers",
   ],
   weak_competencies: ["Behavioral / STAR", "Leadership"],
+  // Structured mirror of the prose weaknesses, each tagged with the competency
+  // it drills. Under form Y the coach plans from THIS list (no score-band filter),
+  // so System Design (a "solid" 3.3) still becomes a module — the preview shows
+  // the report page and the coach page agreeing.
+  growth_items: [
+    {
+      competency: "Behavioral / STAR",
+      text: "STAR structure is inconsistent — situation and task are often dropped",
+    },
+    {
+      competency: "Leadership",
+      text: "Leadership examples rarely reach beyond the immediate team",
+    },
+    {
+      competency: "System Design",
+      text: "Capacity and failure-mode reasoning is thin in system-design answers",
+    },
+  ],
   model_answers: [
     {
       question_id: "q1",

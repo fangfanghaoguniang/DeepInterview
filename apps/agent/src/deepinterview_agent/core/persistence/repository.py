@@ -15,7 +15,15 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from uuid import uuid4
 
 from ...api.views import SessionView
-from ...shared_models import AnswerRecord, InterviewContext, PrepRequest, ScoreCard
+from ...shared_models import (
+    # PracticeState is a competency -> mastery-state mapping (storage detail, not
+    # a wire model); imported for readable signatures.
+    AnswerRecord,
+    InterviewContext,
+    PracticeState,
+    PrepRequest,
+    ScoreCard,
+)
 from ..logging import get_logger
 
 if TYPE_CHECKING:
@@ -48,6 +56,20 @@ class SessionRepository(Protocol):
 
     async def save_coach_transcript(self, session_id: str, turns: list[dict]) -> None: ...
 
+    async def get_coach_transcript(self, session_id: str) -> list[dict] | None: ...
+
+    async def get_practice_state(self, session_id: str) -> PracticeState | None: ...
+
+    async def set_practice_state(
+        self, session_id: str, competency: str, state: str
+    ) -> None: ...
+
+    async def get_drill_items(self, session_id: str) -> list[dict] | None: ...
+
+    async def add_drill_items(
+        self, session_id: str, items: list[dict]
+    ) -> list[dict]: ...
+
     async def mark_progress(self, session_id: str, step: str) -> None: ...
 
     async def add_warnings(self, session_id: str, warnings: list[str]) -> None: ...
@@ -72,6 +94,12 @@ class _SessionRow:
     # Spoken study-coach conversation — SEPARATE from the interview transcript
     # so a post-interview coach session can never overwrite the interview record.
     coach_transcript: list[dict] | None = None
+    # Per-session practice mastery (competency -> mastery state), merged into the
+    # study plan's module statuses and written back by the spoken coach.
+    practice_state: dict[str, str] = field(default_factory=dict)
+    # Targeted drill questions generated for overflow growth competencies (see
+    # migration 0008); study-only extras, never folded back into the plan.
+    drill_items: list[dict] = field(default_factory=list)
     answers: list[dict] = field(default_factory=list)
     progress: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
@@ -127,6 +155,44 @@ class MemoryRepository:
 
     async def save_coach_transcript(self, session_id: str, turns: list[dict]) -> None:
         self._require(session_id).coach_transcript = list(turns)
+
+    async def get_coach_transcript(self, session_id: str) -> list[dict] | None:
+        # None = unknown session; [] = session exists but never had a coaching
+        # session (or it captured nothing) — the caller distinguishes them.
+        row = self._rows.get(session_id)
+        if row is None:
+            return None
+        return list(row.coach_transcript or [])
+
+    async def get_practice_state(self, session_id: str) -> PracticeState | None:
+        # None = unknown session; {} = session exists but nothing practiced yet.
+        row = self._rows.get(session_id)
+        if row is None:
+            return None
+        return dict(row.practice_state)
+
+    async def set_practice_state(
+        self, session_id: str, competency: str, state: str
+    ) -> None:
+        self._require(session_id).practice_state[competency] = state
+
+    async def get_drill_items(self, session_id: str) -> list[dict] | None:
+        # None = unknown session; [] = session exists but no drills generated.
+        row = self._rows.get(session_id)
+        if row is None:
+            return None
+        return list(row.drill_items)
+
+    async def add_drill_items(
+        self, session_id: str, items: list[dict]
+    ) -> list[dict]:
+        # Upsert by id (regenerating the same competency must not duplicate).
+        row = self._require(session_id)
+        by_id = {d.get("id"): d for d in row.drill_items}
+        for it in items:
+            by_id[it["id"]] = it
+        row.drill_items = list(by_id.values())
+        return list(row.drill_items)
 
     async def mark_progress(self, session_id: str, step: str) -> None:
         row = self._require(session_id)
@@ -250,6 +316,97 @@ class SupabaseRepository:
         # Requires the coach_transcript column (migration 0004); callers treat
         # this as best-effort, so a missing column logs rather than crashes.
         await self._update(session_id, {"coach_transcript": list(turns)})
+
+    async def get_coach_transcript(self, session_id: str) -> list[dict] | None:
+        def _build() -> Any:
+            return (
+                self._table()
+                .select("coach_transcript")
+                .eq("id", session_id)
+                .limit(1)
+                .execute()
+            )
+
+        resp = await self._exec(_build)
+        rows = getattr(resp, "data", None) or []
+        if not rows:
+            return None
+        return list(rows[0].get("coach_transcript") or [])
+
+    async def get_practice_state(self, session_id: str) -> PracticeState | None:
+        # None = unknown session; {} = session exists but nothing practiced yet.
+        # Requires the practice_state column (migration 0007).
+        def _build() -> Any:
+            return (
+                self._table()
+                .select("practice_state")
+                .eq("id", session_id)
+                .limit(1)
+                .execute()
+            )
+
+        resp = await self._exec(_build)
+        rows = getattr(resp, "data", None) or []
+        if not rows:
+            return None
+        return dict(rows[0].get("practice_state") or {})
+
+    async def set_practice_state(
+        self, session_id: str, competency: str, state: str
+    ) -> None:
+        # Read-modify-write a single competency key (mirrors mark_progress): the
+        # coach grades one area per exchange, so we must not clobber the others.
+        def _build() -> Any:
+            return (
+                self._table()
+                .select("practice_state")
+                .eq("id", session_id)
+                .limit(1)
+                .execute()
+            )
+
+        resp = await self._exec(_build)
+        rows = getattr(resp, "data", None) or []
+        current = dict(rows[0].get("practice_state") or {}) if rows else {}
+        if current.get(competency) == state:
+            return
+        current[competency] = state
+        await self._update(session_id, {"practice_state": current})
+
+    async def get_drill_items(self, session_id: str) -> list[dict] | None:
+        # None = unknown session; [] = session exists but no drills generated.
+        # Requires the drill_items column (migration 0008).
+        def _build() -> Any:
+            return (
+                self._table().select("drill_items").eq("id", session_id).limit(1).execute()
+            )
+
+        resp = await self._exec(_build)
+        rows = getattr(resp, "data", None) or []
+        if not rows:
+            return None
+        return list(rows[0].get("drill_items") or [])
+
+    async def add_drill_items(self, session_id: str, items: list[dict]) -> list[dict]:
+        # Read-modify-write, upsert by id, mirroring set_practice_state.
+        def _build() -> Any:
+            return (
+                self._table().select("drill_items").eq("id", session_id).limit(1).execute()
+            )
+
+        resp = await self._exec(_build)
+        rows = getattr(resp, "data", None) or []
+        existing = list(rows[0].get("drill_items") or []) if rows else []
+        by_id = {d.get("id"): d for d in existing}
+        changed = False
+        for it in items:
+            if by_id.get(it["id"]) != it:
+                by_id[it["id"]] = it
+                changed = True
+        merged = list(by_id.values())
+        if changed:
+            await self._update(session_id, {"drill_items": merged})
+        return merged
 
     async def mark_progress(self, session_id: str, step: str) -> None:
         def _build() -> Any:

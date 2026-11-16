@@ -282,6 +282,24 @@ export const zh: Localized<Messages> = {
     typePlaceholderOffline: "上线后可输入答案",
     sendAnswer: "发送输入的答案",
   },
+  coach: {
+    title: "学习教练",
+    speakerCoach: "教练",
+    endSession: "结束练习",
+    connecting: "正在连接教练…",
+    previewBody:
+      "未配置 LiveKit，教练房间无法连接。设置 LIVEKIT_URL、LIVEKIT_API_KEY 和 LIVEKIT_API_SECRET 后即可开启语音教练。",
+    agentMissing: "教练没有到场",
+    agentMissingBody:
+      "房间一切正常，但没有教练智能体加入——教练 worker 没在运行。请在 apps/agent 下执行 `uv run python -m deepinterview_agent.worker_coach start` 启动它。",
+    backToPrep: "返回备考页",
+    needsSession:
+      "先完成一次出分的模拟面试——教练的问题会从你的报告中提炼。",
+    replayEyebrow: "苏格拉底教练",
+    replayTitle: "上一次教练会话",
+    replayRounds: "本次对话共 {n} 轮往返",
+    replayClosing: "教练的收梢总结",
+  },
   report: {
     title: "你的面试报告",
     subtitle: "哪些地方你表现出色，以及下一步该练什么。",
@@ -451,6 +469,8 @@ export const zh: Localized<Messages> = {
     eyebrow: "短板 → 学习路径",
     title: "你的学习计划",
     builtFrom: "基于你上一次面试暴露的短板生成",
+    noGapsTitle: "没有需要补强的短板",
+    noGapsBody: "你上一次面试没有暴露明显短板，做得很好。再开一场模拟面保持手感吧。",
     planSummary: "{n} 个模块 · 约 {min} 分钟。",
     minutesUnit: "分钟",
     start: "开始学习",

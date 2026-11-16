@@ -17,6 +17,7 @@ handoff that returns only an Agent generates no reply on its own.
 
 from __future__ import annotations
 
+from ..prep.prompts import language_name
 from . import state
 from .interviewer import Interviewer, _localized
 
@@ -61,7 +62,7 @@ class _RoundPersona(Interviewer):
         self.session.generate_reply(
             instructions=(
                 f"Transition smoothly into the {self._round_label} round, speaking "
-                f"in {primary}. In one short sentence say you're moving to this "
+                f"in {language_name(primary)}. In one short sentence say you're moving to this "
                 f"round, then ask this question and stop: {question_line}. Do not "
                 "re-introduce yourself or call any tools yet."
             )

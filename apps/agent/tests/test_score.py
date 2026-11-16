@@ -276,3 +276,135 @@ def test_run_score_degrades_when_a_late_stage_fails(monkeypatch) -> None:
     assert sc.competency_scores  # evaluated numbers preserved
     assert ScoreCard.model_validate(sc.model_dump()) == sc
     assert deps.repo.get_status(session_id) == "complete"
+
+
+def test_guarded_retries_timeouts_then_succeeds() -> None:
+    """A congested-stage timeout re-invokes the factory instead of degrading.
+
+    The real-world shape this defends against: the provider queues a request
+    for 70s while the 60s window expires — the retry lands seconds later.
+    """
+    from deepinterview_agent import post
+
+    calls = {"n": 0}
+
+    async def _flaky():
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise TimeoutError
+        return "ok"
+
+    out = asyncio.run(
+        post._guarded(_flaky, label="t", timeout=5.0, attempts=3, backoff_sec=0.0)
+    )
+    assert out == "ok"
+    assert calls["n"] == 2
+
+
+def test_guarded_gives_up_after_all_attempts() -> None:
+    """Persistent timeouts still degrade to None — bounded, never looping."""
+    from deepinterview_agent import post
+
+    calls = {"n": 0}
+
+    async def _always_hangs():
+        calls["n"] += 1
+        raise TimeoutError
+
+    out = asyncio.run(
+        post._guarded(_always_hangs, label="t", timeout=5.0, attempts=3, backoff_sec=0.0)
+    )
+    assert out is None
+    assert calls["n"] == 3
+
+
+def test_guarded_does_not_retry_hard_errors() -> None:
+    """Non-timeout errors are deterministic: degrade once, no wasted re-billing."""
+    from deepinterview_agent import post
+
+    calls = {"n": 0}
+
+    async def _boom():
+        calls["n"] += 1
+        raise RuntimeError("provider exploded")
+
+    out = asyncio.run(
+        post._guarded(_boom, label="t", timeout=5.0, attempts=3, backoff_sec=0.0)
+    )
+    assert out is None
+    assert calls["n"] == 1
+
+
+def test_run_score_force_reruns_an_already_complete_session(monkeypatch) -> None:
+    """The degraded card tells the user to "re-run scoring" — force is the door.
+
+    Without force the idempotency short-circuit returns the persisted card and
+    never touches the pipeline; with force the narrative stage re-runs even
+    though the session is already complete.
+    """
+    deps = build_deps()
+    session_id, _ctx = _prepare_session(deps)
+
+    asyncio.run(run_score(ScoreRequest(session_id=session_id), deps))
+    assert deps.repo.get_status(session_id) == "complete"
+
+    from deepinterview_agent import post
+
+    calls = {"n": 0}
+    real_report = post.generate_report
+
+    async def _spy(*args, **kwargs):
+        calls["n"] += 1
+        return await real_report(*args, **kwargs)
+
+    monkeypatch.setattr(post, "generate_report", _spy)
+
+    asyncio.run(run_score(ScoreRequest(session_id=session_id), deps))
+    assert calls["n"] == 0  # idempotent short-circuit, no re-billing
+
+    sc = asyncio.run(run_score(ScoreRequest(session_id=session_id), deps, force=True))
+    assert calls["n"] == 1
+    assert isinstance(sc, ScoreCard)
+
+
+def test_degraded_copy_follows_the_interview_language(monkeypatch) -> None:
+    """A Chinese interview must not get English placeholders on its partial
+    report: the degraded copy is code-side (it by-passes the LLM language
+    rule), so it localizes off ``plan.language_mode.primary``.
+    """
+    from deepinterview_agent import post
+
+    async def _boom(*args, **kwargs):
+        raise RuntimeError("provider exploded")
+
+    monkeypatch.setattr(post, "generate_report", _boom)
+    deps = build_deps()
+    session_id = asyncio.run(run_prep(_request(primary="zh"), deps))
+    _seed_answers(session_id, deps)
+
+    sc = asyncio.run(run_score(ScoreRequest(session_id=session_id), deps))
+    assert sc.competency_scores  # still the degraded-but-numbered shape
+    assert not sc.strengths and not sc.model_answers
+    assert sc.next_steps == ["重新运行评分以生成完整书面报告。"]
+    assert "重新运行评分" in sc.summary
+    assert "Re-run scoring" not in sc.next_steps[0]
+
+
+def test_degraded_copy_defaults_to_english_for_other_languages(monkeypatch) -> None:
+    """Un-translated locales keep the original English copy (no regression on
+    the existing contract).
+    """
+    from deepinterview_agent import post
+
+    async def _boom(*args, **kwargs):
+        raise RuntimeError("provider exploded")
+
+    monkeypatch.setattr(post, "generate_report", _boom)
+    deps = build_deps()
+    session_id = asyncio.run(run_prep(_request(primary="en"), deps))
+    _seed_answers(session_id, deps)
+
+    sc = asyncio.run(run_score(ScoreRequest(session_id=session_id), deps))
+    assert sc.next_steps == ["Re-run scoring to generate the full written report."]
+    assert "Partial scorecard" in sc.summary
+

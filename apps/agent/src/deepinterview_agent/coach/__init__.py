@@ -1,8 +1,10 @@
 """WP-4 Study Coach: scorecard -> study plan, and grounded tutoring chat.
 
 Sequential async (no LangGraph), mirrors ``post/``. ``run_coach_plan`` turns a
-``ScoreCard``'s ``weak_competencies`` into a ``StudyPlan`` (one module per weak
-competency, weakest-first); ``run_coach_chat`` answers a learner question
+``ScoreCard``'s structured ``growth_items`` into a ``StudyPlan`` (one module per
+growth area, weakest-first — form Y, no score-band filter; falls back to the
+score-banded ``weak_competencies`` when a card carries no ``growth_items``),
+``run_coach_chat`` answers a learner question
 grounded in ``deps.knowledge`` then synthesized by the LLM. Every LLM/retrieval
 call is guarded with a timeout + fallback so the Prep Coach UI always gets a
 valid response.
@@ -15,13 +17,15 @@ of the scorecard, so it needs no repo/storage lookup.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Mapping
 from typing import TYPE_CHECKING
+from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict
 
 from ..core.logging import get_logger
-from ..shared_models import CoachReply, StudyModule, StudyPlan
-from .prompts import coach_chat_prompts, study_module_prompts
+from ..shared_models import CoachReply, DrillItem, StudyModule, StudyPlan
+from .prompts import coach_chat_prompts, drill_prompts, study_module_prompts
 
 if TYPE_CHECKING:
     from ..core.deps import Deps
@@ -29,7 +33,7 @@ if TYPE_CHECKING:
 
 log = get_logger(__name__)
 
-__all__ = ["run_coach_chat", "run_coach_plan"]
+__all__ = ["run_coach_chat", "run_coach_plan", "run_generate_drills"]
 
 _DEFAULT_EST_MIN = 25
 _STAGE_TIMEOUT = 60.0
@@ -50,6 +54,22 @@ class _ChatDraft(BaseModel):
     model_config = ConfigDict(extra="forbid")
     answer: str
     follow_ups: list[str]
+
+
+class _DrillQuestion(BaseModel):
+    """One LLM-authored drill: the question (target + English) and its answer."""
+
+    model_config = ConfigDict(extra="forbid")
+    question_en: str
+    question: str
+    answer: str
+
+
+class _DrillDraft(BaseModel):
+    """LLM output for a drill batch — a list of self-contained Q&A items."""
+
+    model_config = ConfigDict(extra="forbid")
+    questions: list[_DrillQuestion]
 
 
 def _status_for_level(level: str) -> MasteryState:
@@ -76,31 +96,56 @@ def _empty_plan(summary: str) -> StudyPlan:
 
 
 async def run_coach_plan(
-    scorecard: ScoreCard, deps: Deps, language: str = "en"
+    scorecard: ScoreCard,
+    deps: Deps,
+    language: str = "en",
+    practice_state: Mapping[str, MasteryState] | None = None,
 ) -> StudyPlan:
-    """Build a ``StudyPlan`` from a scorecard's weak competencies.
+    """Build a ``StudyPlan`` from a scorecard's structured growth items.
 
-    One module per ``weak_competencies`` entry, ordered weakest-first; the LLM
+    One module per ``growth_items`` entry (form Y: every reported growth area
+    becomes a module, no score-band filter), ordered weakest-first; the LLM
     drafts the title/rationale/est_min while ``competency`` and ``status`` are
     pinned deterministically so the plan maps cleanly back onto the loop's
-    shared competency space. ``language`` (default "en") sets the output
-    language of the LLM-drafted free text.
+    shared competency space. Falls back to the score-banded ``weak_competencies``
+    when a scorecard carries no ``growth_items`` (older cards, or an LLM that
+    omitted the field). ``language`` (default "en") sets the output language of
+    the LLM-drafted free text. ``practice_state`` (a competency -> mastery map
+    persisted on the session) OVERRIDES the derived ``status`` for any competency
+    it names, so previously-practiced areas resurface at their saved mastery
+    rather than the score-band default.
     """
-    weak = list(scorecard.weak_competencies)
-    if not weak:
+    # Plan from the STRUCTURED growth items so the report page and the coach
+    # page share a single source. Old scorecards (or an LLM that omitted the
+    # field) fall back to the score-banded weak_competencies.
+    items: list[tuple[str, str]] = [(gi.competency, gi.text) for gi in scorecard.growth_items]
+    if not items:
+        items = [(c, "") for c in scorecard.weak_competencies]
+    if not items:
         return _empty_plan(
             "No weak areas from your last interview — nice work. Run another mock to stay sharp."
         )
 
     score_by_comp = {cs.competency: cs for cs in scorecard.competency_scores}
-    # Weakest (lowest score) first; competencies absent from the scores sort last.
-    weak.sort(key=lambda c: score_by_comp[c].score if c in score_by_comp else 99.0)
+    # Weakest (lowest score) first; overflow competencies absent from the scores
+    # (a JD gap the interview never asked about) sort last.
+    items.sort(key=lambda it: score_by_comp[it[0]].score if it[0] in score_by_comp else 99.0)
 
     modules: list[StudyModule] = []
-    for i, comp in enumerate(weak, start=1):
+    for i, (comp, growth_text) in enumerate(items, start=1):
         cs = score_by_comp.get(comp)
-        evidence = cs.evidence if cs is not None else ""
+        evidence = (
+            cs.evidence if cs is not None else (growth_text or "(no specific evidence captured)")
+        )
         level = cs.level if cs is not None else "weak"
+        derived_status: MasteryState = (
+            _status_for_level(level) if cs is not None else "learning"
+        )
+        # A persisted mastery state wins over the score-band default so the plan
+        # reflects practice already done on THIS session.
+        status: MasteryState = (
+            practice_state.get(comp, derived_status) if practice_state else derived_status
+        )
         system, user = study_module_prompts(comp, evidence, level, language)
         draft = await _guarded(
             deps.llm.complete_json(system=system, user=user, schema=_ModuleDraft),
@@ -117,7 +162,7 @@ async def run_coach_plan(
                 id=f"m{i}",
                 title=draft.title,
                 competency=comp,
-                status=_status_for_level(level),
+                status=status,
                 est_min=_clamp_min(draft.est_min),
                 rationale=draft.rationale,
             )
@@ -127,6 +172,49 @@ async def run_coach_plan(
     plural = "s" if len(modules) != 1 else ""
     summary = f"{len(modules)} focus area{plural} from your last interview, about {total} min."
     return StudyPlan(modules=modules, summary=summary, total_min=total)
+
+
+async def run_generate_drills(
+    competency: str,
+    evidence: str,
+    language: str,
+    deps: Deps,
+    count: int = 3,
+) -> list[DrillItem]:
+    """Author targeted drill questions for one growth competency.
+
+    Used for a competency the interview never scored (an overflow growth item
+    with no rubric question and no model answer), so the flashcard deck has
+    something to study. Each item is self-contained (question + reference
+    answer). On ANY LLM failure returns ``[]`` — an honest empty deck beats
+    fabricated filler, and the caller treats empty as "nothing to add".
+    """
+    system, user = drill_prompts(competency, evidence, language, count)
+    draft = await _guarded(
+        deps.llm.complete_json(system=system, user=user, schema=_DrillDraft),
+        label=f"drill:{competency}",
+    )
+    if draft is None:
+        return []
+    items: list[DrillItem] = []
+    for q in draft.questions[: max(1, count)]:
+        en = (q.question_en or q.question).strip()
+        primary = (q.question or q.question_en).strip()
+        answer = q.answer.strip()
+        if not en or not answer:
+            continue
+        text: dict[str, str] = {"en": en}
+        if language != "en":
+            text[language] = primary
+        items.append(
+            DrillItem(
+                id=f"drill_{uuid4().hex[:10]}",
+                competency=competency,
+                text=text,
+                answer=answer,
+            )
+        )
+    return items
 
 
 async def run_coach_chat(req: CoachChatRequest, deps: Deps) -> CoachReply:

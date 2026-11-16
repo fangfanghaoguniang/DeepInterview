@@ -205,14 +205,28 @@ def report_summary_prompts(
 ) -> tuple[str, str]:
     """System/user prompts to synthesize the narrative parts of the scorecard.
 
-    Produces the free-text strengths / weaknesses / next_steps / summary; the
-    structured numeric fields are assembled deterministically by ``report``.
+    Produces the free-text strengths / weaknesses / next_steps / summary PLUS
+    a structured ``growth_items`` list (one entry per weakness, each tagged with
+    the competency it drills). The structured numeric fields are assembled
+    deterministically by ``report``.
+
+    ``growth_items`` is what the Prep Coach plans from, so the report page and
+    the coach page stay in agreement. Each item's ``competency`` MUST be an exact
+    name from PER-COMPETENCY SCORES when the weakness maps to one; only when no
+    scored competency fits may it use a short canonical skill label (an "overflow"
+    dimension the drill pipeline will generate a fresh question for). Do NOT
+    invent competencies that duplicate a scored one under a different spelling.
     """
     system = (
         "You are an interview coach writing the candidate's feedback report. Given the "
         "per-competency scores and the role, produce: a list of concrete strengths, a "
-        "list of weaknesses, prioritized next_steps the candidate should study, and a "
-        "warm, honest summary paragraph. Tie everything to evidence from the scores. "
+        "list of weaknesses, prioritized next_steps the candidate should study, a "
+        "warm, honest summary paragraph, and a growth_items list where each item is "
+        "{ text, competency }: text is one actionable growth point and competency is "
+        "the skill it maps to (reuse an exact competency name from the scores above "
+        "whenever one fits; only coin a new short label when nothing scored applies). "
+        "Produce one growth_item per weakness so the coach plan mirrors the report. "
+        "Tie everything to evidence from the scores. "
         "Respond ONLY with the requested schema."
         + _output_language_rule(ctx.plan.language_mode.primary)
     )

@@ -52,7 +52,9 @@ import "@livekit/components-styles";
 import type { Persona } from "@/lib/personas";
 import { cn } from "@/lib/cn";
 import { useMessages } from "@/lib/i18n/client";
-import { t, type Dictionary } from "@/lib/i18n";
+import { t } from "@/lib/i18n";
+import { describeMicFailure } from "@/lib/mic-failure";
+import { ErrorNotice, useAgentNeverJoined } from "@/components/interview/room-primitives";
 import { VoiceStage, StagePreview } from "@/components/interview/voice-stage";
 import {
   TranscriptPanel,
@@ -96,58 +98,6 @@ export interface LiveRoomProps {
    * the LiveKit env. Defaults to `unconfigured`.
    */
   previewReason?: "unconfigured" | "ended";
-}
-
-/**
- * Human, fixable guidance for a microphone failure. Permission denial is the
- * common case — the browser blocked getUserMedia — so we say exactly where to
- * flip the switch instead of a generic "something went wrong".
- */
-function describeMicFailure(
-  messages: Dictionary,
-  failure?: MediaDeviceFailure,
-): string {
-  switch (failure) {
-    case MediaDeviceFailure.PermissionDenied:
-      return t(messages, "interview.micBlocked");
-    case MediaDeviceFailure.NotFound:
-      return t(messages, "interview.micNotFound");
-    case MediaDeviceFailure.DeviceInUse:
-      return t(messages, "interview.micInUse");
-    default:
-      return t(messages, "interview.micUnknown");
-  }
-}
-
-/**
- * Accessible failure banner for the scaffold's notice slot. `role="alert"` +
- * assertive aria-live so screen readers announce it the moment it appears.
- */
-function ErrorNotice({
-  title,
-  message,
-  action,
-}: {
-  title: string;
-  message: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <div
-      role="alert"
-      aria-live="assertive"
-      className={cn(
-        "mx-auto mt-6 w-full max-w-xl rounded-card border border-accent/40",
-        "bg-paper/80 px-4 py-3 text-center backdrop-blur-sm",
-      )}
-    >
-      <p className="text-[13px] font-medium text-ink">{title}</p>
-      <p className="mt-1 text-[13px] leading-relaxed text-ink-soft">
-        {message}
-      </p>
-      {action ? <div className="mt-3 flex justify-center">{action}</div> : null}
-    </div>
-  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -221,38 +171,6 @@ function Scaffold({
 /* ------------------------------------------------------------------ */
 /* LIVE session — descendant of <LiveKitRoom>; owns all LiveKit hooks. */
 /* ------------------------------------------------------------------ */
-
-/**
- * True when the room has been connected for `afterMs` and the agent has NEVER
- * joined it.
- *
- * The voice worker is a separate process (`docker compose --profile live up`),
- * so a correctly-configured browser can join a room that no agent is listening
- * on. LiveKit reports that as a perfectly healthy connection — the room is up,
- * the mic works, nothing errors — and the stage sits on "Connecting your
- * interviewer…" indefinitely with nothing to act on (issue #67).
- *
- * "Never" is deliberate: tracked with a ref so a mid-interview blip, or the
- * agent leaving at the end, can't retroactively raise a "didn't join" notice.
- */
-function useAgentNeverJoined(
-  connected: boolean,
-  agentPresent: boolean,
-  afterMs = 20_000,
-) {
-  const everJoined = React.useRef(false);
-  const [waitedTooLong, setWaitedTooLong] = React.useState(false);
-
-  if (agentPresent) everJoined.current = true;
-
-  React.useEffect(() => {
-    if (!connected || everJoined.current) return;
-    const t = setTimeout(() => setWaitedTooLong(true), afterMs);
-    return () => clearTimeout(t);
-  }, [connected, afterMs]);
-
-  return waitedTooLong && !everJoined.current;
-}
 
 function LiveSession({
   persona,
