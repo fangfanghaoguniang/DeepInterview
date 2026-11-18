@@ -111,6 +111,39 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # Study Coach voice loop — the spoken Socratic counterpart to agent-worker.
+  # REUSES the exact same `worker` build target: the worker stage COPYs all of
+  # apps/agent/src, which already contains worker_coach.py (no new image!).
+  # Only the entry module differs. Same `live` profile, same key requirements;
+  # worker_coach binds HTTP :8082 while the interviewer binds :8081, so the
+  # two voice workers coexist on this machine by dispatch name AND by port.
+  agent-coach:
+    build:
+      context: .
+      dockerfile: apps/agent/Dockerfile
+      target: worker
+    profiles:
+      - live
+    command:
+      - uv
+      - run
+      - python
+      - -m
+      - deepinterview_agent.worker_coach
+      - start
+    environment:
+      - AGENT_API_URL=http://agent-api:8000
+      - LIGHTRAG_URL=http://lightrag:9621
+    env_file:
+      - path: .env
+        required: false
+    depends_on:
+      agent-api:
+        condition: service_started
+      lightrag:
+        condition: service_healthy
+    restart: unless-stopped
+
   # ── Local model servers (the "no cloud model keys" path) ───────────────────
   # Gated behind the `local` profile, exactly like the voice worker above, so
   # the base stack never pulls these multi-GB images:

@@ -1,163 +1,98 @@
 name: Deploy
 
-# WP-12 — gated deploy (Singapore region; see docs/DEPLOY.md).
+# NAS single-machine deploy. CI (ci.yml) runs the checks; this workflow ships
+# the tested commit to the running compose stack on the NAS.
 #
-# This workflow is a SKETCH wired with placeholders + comments. It is safe by
-# default: the destructive deploy commands are commented out, and each step
-# gates on the relevant secrets being present (checked inside each step — note
-# GitHub does NOT allow `secrets.*` in a job/workflow-level `if:`).
+# Topology facts this file depends on:
+#   - The deploy job runs ONLY on the NAS self-hosted runner (label `nas`).
+#     If the NAS is offline the job queues until it returns — it must never
+#     fall back to a GitHub-hosted runner, which has no stack to update.
+#   - CI keeps `ubuntu-latest`, so it can still run on GitHub-hosted runners
+#     when the NAS is down (checks survive; only deploys wait).
+#   - The compose project lives in $NAS_DEPLOY_DIR on the NAS (repo Settings ->
+#     Actions -> Variables, e.g. /volume1/@home/DeepInterview). That directory
+#     is a git clone of this repo; .env there is gitignored, so `git checkout`
+#     never touches the keys.
 #
-# Targets:
-#   web    -> Vercel (region sin1)            — apps/web
-#   agent  -> container image -> LiveKit Cloud Agents (Singapore) / Render / Fly (sin)
+# Trigger: automatic after a SUCCESSFUL CI run on main (workflow_run), plus a
+# manual fallback for re-deploying the current main.
 #
-# Trigger: MANUAL ONLY (workflow_dispatch) until the deploy steps are real.
-# We intentionally do NOT run on push to main yet — an unwired deploy would
-# fail on every push. Re-add a `push:` trigger once the steps below are live.
+# The `production` environment is referenced but intentionally ships WITHOUT
+# required reviewers (push -> CI -> deploy stays fully automatic). To add a
+# human approval gate later, enable required reviewers on the `production`
+# environment in repo Settings — no file change needed.
 
 on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
-  group: deploy-${{ github.ref }}
+  group: deploy-nas
   cancel-in-progress: false
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
-  # --- Web -> Vercel (Singapore) --------------------------------------------
-  deploy-web:
-    name: Deploy web (Vercel · sin1)
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+  deploy-nas:
+    name: Deploy to NAS (compose)
+    # Only the NAS runner carries the `nas` label (register it with
+    # `--labels ubuntu-latest,nas`). A GitHub-hosted runner must never take
+    # this job — it has no compose stack to update.
+    runs-on: [self-hosted, nas]
     environment: production
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Gate on Vercel secrets
-        id: gate
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      # workflow_run fires for FAILED CI runs too — the conclusion check is
+      # what keeps a red build from ever reaching the stack.
+      - name: Resolve the commit that passed CI
+        id: sha
         run: |
-          if [ -z "$VERCEL_TOKEN" ]; then
-            echo "VERCEL_TOKEN not set — skipping web deploy."
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            conc="${{ github.event.workflow_run.conclusion }}"
+            if [ "$conc" != "success" ]; then
+              echo "CI conclusion=$conc — not deploying."
+              echo "enabled=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
           else
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            # Manual dispatch: deploy whatever the runner's checkout is at.
+            echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
           fi
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
 
-      - name: Install pnpm
-        if: steps.gate.outputs.enabled == 'true'
-        # Version comes from package.json `packageManager` (pnpm@11.5.2);
-        # pinning here too triggers ERR_PNPM_BAD_PM_VERSION.
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node
-        if: steps.gate.outputs.enabled == 'true'
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Deploy to Vercel (region sin1)
-        if: steps.gate.outputs.enabled == 'true'
+      # Detached-checkout the EXACT commit CI validated (not "latest main"),
+      # so a commit pushed mid-deploy can't sneak in untested. The detached
+      # HEAD state in the deploy dir is expected; the next deploy moves it on.
+      - name: Update the deploy checkout to the tested commit
+        if: steps.sha.outputs.enabled == 'true'
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          DEPLOY_DIR: ${{ vars.NAS_DEPLOY_DIR }}
+          SHA: ${{ steps.sha.outputs.sha }}
         run: |
-          echo "Region + build config come from vercel.json (regions: [sin1])."
-          # pnpm dlx vercel@latest pull --yes --environment=production --token="$VERCEL_TOKEN"
-          # pnpm dlx vercel@latest build --prod --token="$VERCEL_TOKEN"
-          # pnpm dlx vercel@latest deploy --prebuilt --prod --token="$VERCEL_TOKEN"
-          echo "(placeholder) uncomment the vercel CLI steps above to go live."
+          cd "$DEPLOY_DIR"
+          git fetch origin main
+          git checkout "$SHA"
 
-  # --- Agent image -> GHCR ---------------------------------------------------
-  build-agent-image:
-    name: Build + push agent image (GHCR)
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      # The Dockerfile has two stages: `api` (the FastAPI service) and `worker`
-      # (the LiveKit voice loop, +livekit extra + baked model weights). `worker`
-      # is the LAST stage, so a build with NO `target:` would push the worker as
-      # the API image. Build and push each explicitly to its own tag.
-      - name: Build + push API image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: apps/agent/Dockerfile
-          target: api
-          push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          tags: |
-            ghcr.io/${{ github.repository }}-agent:latest
-            ghcr.io/${{ github.repository }}-agent:${{ github.sha }}
-
-      - name: Build + push worker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: apps/agent/Dockerfile
-          target: worker
-          push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          tags: |
-            ghcr.io/${{ github.repository }}-agent-worker:latest
-            ghcr.io/${{ github.repository }}-agent-worker:${{ github.sha }}
-
-  # --- Worker -> LiveKit Cloud Agents (Singapore) / Render / Fly (sin) -------
-  deploy-agent-worker:
-    name: Deploy agent worker (LiveKit Cloud · SGP)
-    runs-on: ubuntu-latest
-    needs: build-agent-image
-    if: github.ref == 'refs/heads/main'
-    environment: production
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Gate on LiveKit secrets
-        id: gate
+      # Incremental by design: compose rebuilds only the images whose sources
+      # changed (layer cache), then recreates only the affected containers.
+      - name: Rebuild + restart the stack (incremental)
+        if: steps.sha.outputs.enabled == 'true'
         env:
-          LIVEKIT_API_KEY: ${{ secrets.LIVEKIT_API_KEY }}
+          DEPLOY_DIR: ${{ vars.NAS_DEPLOY_DIR }}
         run: |
-          if [ -z "$LIVEKIT_API_KEY" ]; then
-            echo "LIVEKIT_API_KEY not set — skipping worker deploy."
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          fi
+          cd "$DEPLOY_DIR"
+          docker compose --profile live up -d --build
 
-      - name: Deploy worker to LiveKit Cloud Agents (Singapore region)
-        if: steps.gate.outputs.enabled == 'true'
-        env:
-          LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
-          LIVEKIT_API_KEY: ${{ secrets.LIVEKIT_API_KEY }}
-          LIVEKIT_API_SECRET: ${{ secrets.LIVEKIT_API_SECRET }}
+      # Fail loudly rather than half-live: if either health endpoint is down
+      # the run goes red. Rollback by hand (SSH to the NAS):
+      #   git checkout <last-good-sha> && docker compose --profile live up -d --build
+      # Old images stay in the local cache, so the rebuild is fast.
+      - name: Health check
+        if: steps.sha.outputs.enabled == 'true'
         run: |
-          echo "Deploy the worker close to candidates in SEA (Singapore)."
-          # Option A — LiveKit Cloud Agents (recommended; co-located w/ media):
-          #   curl -sSL https://get.livekit.io/cli | bash
-          #   lk agent deploy --region sin --subdomain <project> \
-          #     --image ghcr.io/${{ github.repository }}-agent-worker:${{ github.sha }}
-          #
-          # Option B — Render / Fly.io (region: sin):
-          #   flyctl deploy --image ghcr.io/${{ github.repository }}-agent-worker:${{ github.sha }} \
-          #     --regions sin --app deepinterview-worker
-          echo "(placeholder) uncomment one option above to go live."
+          curl -fsS http://127.0.0.1:3000/api/health
+          curl -fsS http://127.0.0.1:8000/health
