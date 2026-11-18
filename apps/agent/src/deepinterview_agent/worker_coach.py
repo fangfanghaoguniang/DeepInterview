@@ -30,6 +30,10 @@ logic it relies on (instructions + weak-areas summary) IS unit-tested in
 
 from __future__ import annotations
 
+import asyncio
+import json
+
+import httpx
 from livekit.agents import (
     AgentSession,
     JobContext,
@@ -39,13 +43,13 @@ from livekit.agents import (
 
 from .coach.prompts import closing_instructions
 from .core.config import get_settings
-from .core.deps import build_deps
 from .core.logging import get_logger
 from .core.observability import init_observability
 from .core.tracing import add_event, start_trace
 from .live.coach_agent import CoachAgent
 from .live.guard import SessionGuard
-from .live.state import InterviewUserdata, coach_briefing
+from .live.state import InterviewUserdata
+from .shared_models import StudyView
 
 # Reuse the interview worker's provider factories + context loaders verbatim so
 # the coach worker and interview worker stay in lockstep (single source of truth).
@@ -53,7 +57,6 @@ from .worker import (
     _api_base,
     _internal_headers,
     _load_context_via_api,
-    _session_id_from_room,
     build_conn_options,
     build_llm,
     build_room_options,
@@ -113,10 +116,15 @@ async def _post_progress(
 async def entrypoint(ctx: JobContext) -> None:
     settings = get_settings()
     init_observability(settings)
-    deps = build_deps(settings)
-
     await ctx.connect()
-    session_id = _session_id_from_room(ctx)
+    metadata = json.loads(ctx.job.metadata or "{}")
+    run_payload = {key: metadata[key] for key in ("session_id", "version", "run_id")}
+    session_id = run_payload["session_id"]
+    async with httpx.AsyncClient(timeout=15) as client:
+        response = await client.post(f"{_api_base(settings)}/api/coach/run/context",
+                                     json=run_payload, headers=_internal_headers(settings))
+        response.raise_for_status()
+        study = StudyView.model_validate(response.json())
 
     interview_ctx = await _load_context_via_api(session_id, settings)
     if interview_ctx is None:
@@ -126,9 +134,7 @@ async def entrypoint(ctx: JobContext) -> None:
     primary = interview_ctx.plan.language_mode.primary
     # Weak areas + the private model-answer reference for the weakest one —
     # the coach's judging context, never recited (see coach_briefing).
-    summary = coach_briefing(
-        interview_ctx.plan.questions, interview_ctx.scorecard, primary
-    )
+    summary = "本轮覆盖当前报告全部成长目标，当前焦点与整场范围不同。"
 
     # Carry the same per-session userdata shape as the interview worker. The
     # coach reuses the INTERVIEW's session row, so its conversation is persisted
@@ -169,7 +175,66 @@ async def entrypoint(ctx: JobContext) -> None:
     wire_transcript_capture(session, userdata, tag_questions=False,
                             trace_id=_coach_trace_id)
 
-    coach = CoachAgent(briefing=summary, lang=primary)
+    async def publish_goal(active, answered):
+        await ctx.room.local_participant.set_attributes({
+            "coach.active": active or "", "coach.answered": json.dumps(answered),
+        })
+
+    coach = CoachAgent(briefing=summary, lang=primary, targets=study.targets, on_goal=publish_goal)
+    goal_turns = []
+    control_lock = asyncio.Lock()
+    pending_commit: asyncio.Future | None = None
+    tasks: set[asyncio.Task] = set()
+
+    def spawn(coro):
+        task = asyncio.create_task(coro)
+        tasks.add(task)
+        task.add_done_callback(tasks.discard)
+
+    async def control(payload):
+        async with control_lock:
+            try:
+                if (coach.wrapping or session.agent_state in ("thinking", "speaking")
+                        or (pending_commit is not None and not pending_commit.done())):
+                    return
+                action = payload.get("action")
+                if action == "deepen":
+                    session.generate_reply(instructions="学习者要求留在当前目标深入，提出更深一层的问题，等待回答。")
+                    return
+                goal = payload.get("module_id")
+                if action == "next":
+                    ready = [key for key, t in coach.targets.items() if t.cards]
+                    index = ready.index(coach.active_goal) if coach.active_goal in ready else -1
+                    goal = ready[(index + 1) % len(ready)] if ready else None
+                if goal:
+                    instruction = await coach.choose_goal(goal)
+                    session.generate_reply(instructions=instruction)
+            except Exception:
+                log.exception("教练切换目标失败")
+
+    @ctx.room.on("data_received")
+    def on_control(packet):
+        nonlocal pending_commit
+        if not getattr(packet, "participant", None):
+            return
+        if packet.topic == "finish_answer":
+            try:
+                if pending_commit is not None and not pending_commit.done():
+                    return
+                pending_commit = session.commit_user_turn(transcript_timeout=40.0)
+                def committed(future):
+                    if not future.cancelled():
+                        future.exception()
+                pending_commit.add_done_callback(committed)
+            except RuntimeError:
+                log.warning("教练尚未启动，忽略结束回答信号")
+        elif packet.topic == "coach_control":
+            try:
+                payload = json.loads(packet.data)
+                if isinstance(payload, dict):
+                    spawn(control(payload))
+            except (ValueError, TypeError):
+                return
 
     # Turn-cap backstop: count committed LEARNER turns; at the soft cap, inject
     # a one-shot closing synthesis (skipped when the persona already called
@@ -180,6 +245,13 @@ async def entrypoint(ctx: JobContext) -> None:
     @session.on("conversation_item_added")
     def _count_user_turn(ev) -> None:
         item = ev.item
+        text = (getattr(item, "text_content", None) or "").strip()
+        role = getattr(item, "role", None)
+        if text and role in ("user", "assistant"):
+            goal_turns.append({"module_id": coach.active_goal or "", "role": role, "text": text[:4000]})
+        if role == "user" and text:
+            coach.record_answer()
+            spawn(coach.publish_goal())
         if getattr(item, "role", None) != "user":
             return
         if not (getattr(item, "text_content", None) or "").strip():
@@ -191,6 +263,7 @@ async def entrypoint(ctx: JobContext) -> None:
             and not coach.wrapping
         ):
             _turn_state["closing_sent"] = True
+            coach.wrapping = True
             add_event("coach.soft_cap", {"user_turns": _turn_state["user"]},
                       trace_id=_coach_trace_id)
             session.generate_reply(instructions=closing_instructions(primary))
@@ -204,30 +277,58 @@ async def entrypoint(ctx: JobContext) -> None:
         max_turns=settings.max_interview_turns,
     )
 
-    async def _on_shutdown() -> None:
+    async def persist_result() -> None:
         try:
             add_event("coach.end", {"turns": len(userdata.transcript)},
                       trace_id=_coach_trace_id)
         finally:
-            _coach_trace.__exit__(None, None, None)
+            try:
+                _coach_trace.__exit__(None, None, None)
+            except Exception:
+                log.exception("教练追踪关闭失败，继续保存练习反馈")
         await guard.aclose()
 
         # Mastery write-back: the spoken coach runs in a SEPARATE process, so
         # (memory mode) a direct deps.repo write would land in a repo the API
         # never reads. POST the self-assessment to /api/coach/progress instead,
         # which merges into the same per-session practice_state the plan reads.
-        assessment = coach.assessment or {}
-        mastery = assessment.get("mastery")
-        competency = (assessment.get("competency") or "").strip()
-        if mastery in _VALID_MASTERY and competency:
-            await _post_progress(settings, session_id, competency, mastery)
+        payload = {**run_payload, "feedback": list(coach.feedback.values()), "turns": goal_turns[-200:]}
+        for attempt in range(3):
+            try:
+                async with httpx.AsyncClient(timeout=10) as client:
+                    response = await client.post(f"{_api_base(settings)}/api/coach/run/result",
+                                                 json=payload, headers=_internal_headers(settings))
+                    response.raise_for_status()
+                break
+            except Exception:
+                log.exception("教练分目标反馈写回失败: %s", session_id)
+                if attempt < 2:
+                    await asyncio.sleep(1)
+        for task in list(tasks):
+            task.cancel()
 
-        if not userdata.transcript:
-            return
-        try:
-            await deps.repo.save_coach_transcript(session_id, userdata.transcript)
-        except Exception:
-            log.exception("worker_coach: save_coach_transcript failed for %s", session_id)
+    shutdown_lock = asyncio.Lock()
+    persisted = False
+
+    async def _on_shutdown() -> None:
+        nonlocal persisted
+        async with shutdown_lock:
+            if not persisted:
+                await persist_result()
+                persisted = True
+
+    async def close_job() -> None:
+        await _on_shutdown()
+        ctx.shutdown(reason="教练练习已结束")
+
+    @session.on("close")
+    def on_session_close(_event):
+        asyncio.create_task(close_job())
+
+    @session.on("agent_state_changed")
+    def on_agent_state(event):
+        if coach.wrapping and event.new_state == "listening":
+            session.shutdown(drain=True)
 
     ctx.add_shutdown_callback(_on_shutdown)
 
@@ -258,6 +359,9 @@ def main() -> None:
             # so interview jobs never land here and coach jobs never land in
             # the interviewer worker — the two voice workers can run at once.
             agent_name=settings.livekit_coach_agent_name,
+            # Separate HTTP health-check port so coach and interviewer workers
+            # can coexist on the same machine without binding conflicts.
+            port=8082,
         )
     )
 

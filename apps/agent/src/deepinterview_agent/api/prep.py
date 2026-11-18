@@ -8,11 +8,13 @@ task runs to completion before the response is returned.)
 
 from __future__ import annotations
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException
 
 from ..core.deps import build_deps
 from ..prep import run_prep_for_session
-from ..shared_models import PrepRequest, PrepResponse
+from ..prep.focus import read_prep_source, resolve_focus
+from ..shared_models import PrepRequest, PrepResponse, PrepSource
+from .auth import require_internal_secret
 
 router = APIRouter()
 
@@ -25,7 +27,22 @@ _MAX_JD_LEN = 200_000
 _MAX_COMPANY_LEN = 500
 
 
-@router.post("/api/prep", response_model=PrepResponse)
+@router.get("/api/prep/source/{session_id}", response_model=PrepSource,
+            response_model_exclude_none=True, dependencies=[Depends(require_internal_secret)])
+async def prep_source(session_id: str, focus: str,
+                      x_user_id: str | None = Header(default=None)) -> PrepSource:
+    try:
+        return await read_prep_source(session_id, focus, x_user_id, build_deps())
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@router.post("/api/prep", response_model=PrepResponse,
+             dependencies=[Depends(require_internal_secret)])
 async def prep(req: PrepRequest, background_tasks: BackgroundTasks) -> PrepResponse:
     if (
         len(req.cv_url) > _MAX_CV_URL_LEN
@@ -34,6 +51,14 @@ async def prep(req: PrepRequest, background_tasks: BackgroundTasks) -> PrepRespo
     ):
         raise HTTPException(status_code=413, detail="CV/JD/company input too large")
     deps = build_deps()
+    try:
+        focus = await resolve_focus(req, deps)
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
     session_id = await deps.repo.create_session(req)
-    background_tasks.add_task(run_prep_for_session, session_id, req, deps)
+    background_tasks.add_task(run_prep_for_session, session_id, req, deps, focus)
     return PrepResponse(session_id=session_id)

@@ -37,6 +37,8 @@ import {
 import "@livekit/components-styles";
 
 import type { Persona } from "@/lib/personas";
+import { StudyViewSchema, type CoachRun, type StudyTarget } from "@deepinterview/shared";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { useMessages } from "@/lib/i18n/client";
 import { t } from "@/lib/i18n";
@@ -64,6 +66,8 @@ export interface CoachRoomProps {
   /** Null when LiveKit is unconfigured → preview (not-connected) mode. */
   token: string | null;
   url: string | null;
+  run?: CoachRun;
+  targets?: StudyTarget[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -77,7 +81,7 @@ function CoachFrame({
   timer,
   controls,
   textFallback,
-  notice,
+  notice, goals,
 }: {
   persona: Persona;
   stage: React.ReactNode;
@@ -86,15 +90,18 @@ function CoachFrame({
   controls: React.ReactNode;
   textFallback: React.ReactNode;
   notice?: React.ReactNode;
+  goals?: React.ReactNode;
 }) {
   return (
-    <main className="relative min-h-screen overflow-hidden bg-paper">
+    // .coach-tone：教练间整棵子树的 accent 换绿（见 globals.css），与面试间
+    // 的靛蓝强调形成语义区分——教练是培养，不是考核。
+    <main className="coach-tone relative min-h-screen overflow-hidden bg-paper">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(110% 80% at 50% -10%, rgba(67,56,202,0.06), transparent 60%)",
+            "radial-gradient(110% 80% at 50% -10%, rgba(31,122,92,0.07), transparent 60%)",
         }}
       />
 
@@ -111,6 +118,7 @@ function CoachFrame({
           {timer}
         </div>
 
+        {goals}
         <div className="mt-6 grid flex-1 items-center gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)]">
           <div className="mx-auto w-full max-w-sm lg:max-w-md">{stage}</div>
           <div className="flex h-full max-h-[60vh] min-h-[280px] flex-col lg:max-h-[68vh]">
@@ -134,11 +142,15 @@ function CoachFrame({
 /* ------------------------------------------------------------------ */
 
 function CoachSession({
-  persona,
+  persona, sessionId, run, targets, returnHref,
   micError,
   onMicError,
 }: {
   persona: Persona;
+  sessionId: string;
+  run?: CoachRun;
+  targets: StudyTarget[];
+  returnHref: string;
   micError: string | null;
   onMicError: (message: string | null) => void;
 }) {
@@ -155,7 +167,10 @@ function CoachSession({
   // isMicrophoneEnabled trap noted in live-room.tsx).
   const micAvailable = !!microphoneTrack;
   const transcriptions = useTranscriptions();
-  const { state: agentState } = useVoiceAssistant();
+  const { state: agentState, agent } = useVoiceAssistant();
+  const activeGoal = agent?.attributes["coach.active"];
+  let answered: Record<string, number> = {};
+  try { answered = JSON.parse(agent?.attributes["coach.answered"] || "{}"); } catch { /* 等待有效的服务端状态 */ }
   const agentNeverJoined = useAgentNeverJoined(
     connected,
     agentState !== "disconnected",
@@ -167,7 +182,55 @@ function CoachSession({
   // effect below is the single place track mute state is written.
   const [recording, setRecording] = React.useState(false);
   const [recordSeconds, setRecordSeconds] = React.useState(0);
+  const [answerPending, setAnswerPending] = React.useState(false);
+  const [controlNotice, setControlNotice] = React.useState<string | null>(null);
+  const pendingAnswer = React.useRef<number | null>(null);
+  const answeredCount = Object.values(answered).reduce((sum, count) => sum + count, 0);
   const room = useRoomContext();
+
+  React.useEffect(() => {
+    if (pendingAnswer.current !== null && answeredCount > pendingAnswer.current) {
+      pendingAnswer.current = null;
+      setAnswerPending(false);
+      setControlNotice(null);
+    }
+  }, [answeredCount]);
+
+  React.useEffect(() => {
+    if (!answerPending) return;
+    const timer = setTimeout(() => {
+      pendingAnswer.current = null;
+      setAnswerPending(false);
+      setControlNotice("尚未确认这次回答已被记录，请检查转写后重试；也可以结束练习，未确认的回答不会作为已掌握依据。");
+    }, 45_000);
+    return () => clearTimeout(timer);
+  }, [answerPending]);
+
+  React.useEffect(() => {
+    if (!run || !connected || ending) return;
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
+    async function checkFeedback() {
+      try {
+        const response = await fetch(`/api/coach/study?session=${encodeURIComponent(sessionId)}`, {
+          cache: "no-store", signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]),
+        });
+        if (response.ok) {
+          const result = StudyViewSchema.safeParse(await response.json());
+          const saved = result.success ? result.data.coach_run : null;
+          if (!controller.signal.aborted && saved?.id === run!.id && saved.status === "ready") {
+            setEnding(true);
+            await room.disconnect();
+            router.push(returnHref);
+            return;
+          }
+        }
+      } catch { /* 暂时查询失败不结束仍在进行的对话。 */ }
+      if (!controller.signal.aborted) timer = setTimeout(checkFeedback, 3000);
+    }
+    timer = setTimeout(checkFeedback, 3000);
+    return () => { controller.abort(); clearTimeout(timer); };
+  }, [connected, ending, run?.id, sessionId, room, router, returnHref]);
 
   React.useEffect(() => {
     const pub = localParticipant.getTrackPublication(Track.Source.Microphone);
@@ -185,17 +248,19 @@ function CoachSession({
   const prevRecording = React.useRef(false);
   React.useEffect(() => {
     if (prevRecording.current && !recording) {
-      try {
-        void room.localParticipant.publishData(
-          new TextEncoder().encode("finish"),
-          { topic: "finish_answer" },
-        );
-      } catch {
-        // Not connected — there is no live turn to commit, safe to drop.
-      }
+      pendingAnswer.current = answeredCount;
+      setAnswerPending(true);
+      void room.localParticipant.publishData(
+        new TextEncoder().encode("finish"),
+        { topic: "finish_answer", reliable: true },
+      ).catch(() => {
+        pendingAnswer.current = null;
+        setAnswerPending(false);
+        setControlNotice("回答提交信号未送达，请检查连接后重试；尚未将这次录音计为已回答。");
+      });
     }
     prevRecording.current = recording;
-  }, [recording, room]);
+  }, [recording, room, answeredCount]);
 
   // Auto-stop safeguard: a missed "I'm done" tap can't wedge the turn open.
   // Longer ceiling than the interview's 90s — thinking out loud under Socratic
@@ -275,7 +340,8 @@ function CoachSession({
       setRecording(false);
       return;
     }
-    if (!connected || !micAvailable || ending) return;
+    if (!connected || !micAvailable || ending || pendingAnswer.current !== null) return;
+    setControlNotice(null);
     setRecording(true);
   }
 
@@ -292,6 +358,15 @@ function CoachSession({
   }
 
   async function endSession() {
+    if (recording) {
+      setRecording(false);
+      setControlNotice("已停止录音并提交回答。请等待识别完成后，再次结束练习。");
+      return;
+    }
+    if (pendingAnswer.current !== null) {
+      setControlNotice("正在等待这次回答被记录，请稍后再结束练习，以免丢失最后一句。");
+      return;
+    }
     setEnding(true);
     try {
       await localParticipant.setMicrophoneEnabled(false);
@@ -300,10 +375,33 @@ function CoachSession({
     }
     // The coach's home is the prep page — that's where the study plan and the
     // cards it just talked about live. No report to route to.
-    router.push("/prep");
+    let failed = false;
+    if (run) {
+      try {
+        const response = await fetch("/api/coach/run", { method: "POST", signal: AbortSignal.timeout(10_000),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "end", session_id: sessionId, version: run.version, run_id: run.id }),
+        });
+        failed = !response.ok;
+      } catch { failed = true; }
+    }
+    await room.disconnect();
+    router.push(failed ? returnHref.replace("#", "&feedback_error=1#") : returnHref);
+  }
+
+  async function controlGoal(action: string, module_id?: string) {
+    if (recording || pendingAnswer.current !== null || ending) return;
+    try {
+      await localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ action, module_id })),
+        { topic: "coach_control", reliable: true });
+    } catch { onMicError("目标切换未送达，请等待连接恢复后重试。"); }
   }
 
   function sendText(text: string) {
+    if (!connected || ending || recording || pendingAnswer.current !== null) return;
+    pendingAnswer.current = answeredCount;
+    setAnswerPending(true);
+    setControlNotice(null);
     setTypedTurns((prev) => [
       ...prev,
       { id: `typed-${Date.now()}-${prev.length}`, text, at: Date.now() },
@@ -311,13 +409,29 @@ function CoachSession({
     void localParticipant
       .sendText(text, { topic: AGENT_CHAT_TOPIC })
       .catch(() => {
-        // no-op if the room isn't ready
+        pendingAnswer.current = null;
+        setAnswerPending(false);
+        setControlNotice("文字回答未送达，请检查连接后重试；未计入本轮练习。");
       });
   }
 
   return (
     <CoachFrame
       persona={persona}
+      goals={<section className="mt-5 rounded-card border border-ok/25 bg-ok/5 p-4">
+        <h2 className="font-serif text-xl">苏格拉底练习 · 全部成长目标</h2>
+        <p className="mt-2 text-sm text-muted">无需逐项选择。当前聚焦一项，整场包含全部目标；你可以换项、深入或提前结束。本轮不是正式面试评分。</p>
+        <ul className="mt-4 grid gap-3 sm:grid-cols-3">{targets.map((target) => <li key={target.module.id} className="min-w-0 rounded-card border border-line bg-paper p-3">
+          <h3 className="font-medium">{target.module.competency}</h3>
+          <p className="my-2 text-xs text-muted">{target.module.id === activeGoal ? "正在练习" : answered[target.module.id] ? "已回答 · 可继续深入" : target.cards.length ? "尚未练习" : "材料未就绪"}</p>
+          <Button variant="out" size="sm" disabled={!connected || !activeGoal || recording || answerPending || ending || agentState === "thinking" || agentState === "speaking" || !target.cards.length || target.module.id === activeGoal}
+            onClick={() => void controlGoal("switch", target.module.id)}>切到此项</Button>
+        </li>)}</ul>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button variant="out" size="sm" disabled={!connected || !activeGoal || recording || answerPending || ending || agentState === "thinking" || agentState === "speaking"} onClick={() => void controlGoal("next")}>换下一个目标</Button>
+          <Button variant="out" size="sm" disabled={!connected || !activeGoal || recording || answerPending || ending || agentState === "thinking" || agentState === "speaking"} onClick={() => void controlGoal("deepen")}>这一项再深入一点</Button>
+        </div>
+      </section>}
       stage={<VoiceStage persona={persona} />}
       transcript={
         <TranscriptPanel
@@ -331,6 +445,9 @@ function CoachSession({
       timer={<SessionTimer running={connected} />}
       controls={
         <div className="flex flex-col items-center gap-3">
+          {(controlNotice || answerPending) && <p role="status" className="max-w-xl text-center text-sm text-muted">
+            {controlNotice || "正在确认本次回答，请稍候；确认前暂不切换目标。"}
+          </p>}
           <StartAudio
             label={t(messages, "interview.enableAudio")}
             className="rounded-full border border-accent bg-accent-soft px-4 py-2 text-[13px] font-medium text-accent transition-colors hover:bg-accent hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
@@ -342,13 +459,13 @@ function CoachSession({
             ending={ending}
             endLabel={t(messages, "coach.endSession")}
             recording={recording}
-            recordDisabled={!connected || !micAvailable || ending}
+            recordDisabled={!connected || !micAvailable || ending || answerPending}
             recordSeconds={recordSeconds}
             onToggleRecord={toggleRecording}
           />
         </div>
       }
-      textFallback={<TextFallback onSend={sendText} />}
+      textFallback={<TextFallback onSend={sendText} disabled={!connected || ending || recording || answerPending} />}
       notice={
         micError ? (
           <ErrorNotice
@@ -442,10 +559,11 @@ function ConnectingCoach({ persona }: { persona: Persona }) {
 function LostCoach({
   persona,
   message,
-  onRejoin,
+  onRejoin, returnHref,
 }: {
   persona: Persona;
   message: string;
+  returnHref: string;
   onRejoin: () => void;
 }) {
   const messages = useMessages();
@@ -464,7 +582,7 @@ function LostCoach({
             disabled
           />
           <Link
-            href="/prep"
+            href={returnHref}
             className="text-[13px] text-muted underline-offset-4 hover:text-ink hover:underline"
           >
             {t(messages, "coach.backToPrep")}
@@ -495,7 +613,8 @@ function LostCoach({
 /* Orchestrator.                                                        */
 /* ------------------------------------------------------------------ */
 
-export function CoachRoom({ sessionId, persona, token, url }: CoachRoomProps) {
+export function CoachRoom({ sessionId, persona, token, url, run, targets = [] }: CoachRoomProps) {
+  const returnHref = `/prep?session=${encodeURIComponent(sessionId)}${run?.entry_module ? `&module=${run.entry_module}` : ""}${run ? `&run=${run.id}` : ""}#coach-feedback`;
   const router = useRouter();
   const messages = useMessages();
 
@@ -535,12 +654,12 @@ export function CoachRoom({ sessionId, persona, token, url }: CoachRoomProps) {
       // The coach worker closed the room (soft cap / guard / its own end):
       // the session transcript is already persisted server-side; go home.
       if (reason === DisconnectReason.ROOM_DELETED) {
-        router.push("/prep");
+        router.push(returnHref);
         return;
       }
       setConnectionLost(t(messages, "interview.connDropped"));
     },
-    [router, messages],
+    [router, messages, returnHref],
   );
 
   function rejoin() {
@@ -555,7 +674,7 @@ export function CoachRoom({ sessionId, persona, token, url }: CoachRoomProps) {
   if (!mounted) return <ConnectingCoach persona={persona} />;
   if (connectionLost) {
     return (
-      <LostCoach persona={persona} message={connectionLost} onRejoin={rejoin} />
+      <LostCoach persona={persona} message={connectionLost} onRejoin={rejoin} returnHref={returnHref} />
     );
   }
 
@@ -573,7 +692,7 @@ export function CoachRoom({ sessionId, persona, token, url }: CoachRoomProps) {
       onDisconnected={handleDisconnected}
     >
       <RoomAudioRenderer />
-      <CoachSession persona={persona} micError={micError} onMicError={setMicError} />
+      <CoachSession persona={persona} sessionId={sessionId} run={run} targets={targets} returnHref={returnHref} micError={micError} onMicError={setMicError} />
     </LiveKitRoom>
   );
 }

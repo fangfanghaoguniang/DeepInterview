@@ -322,8 +322,9 @@ def get_llm(settings: Settings) -> LLMAdapter:
         # the factory contract is unchanged — missing config still degrades to
         # the mock rather than failing the pipeline.
         if settings.ollama_base_url:
+            api_key = getattr(settings, "ollama_api_key", "") or settings.local_api_key
             return OllamaLLM(
-                settings.local_api_key,
+                api_key,
                 settings.ollama_model,
                 timeout,
                 base_url=settings.ollama_base_url,

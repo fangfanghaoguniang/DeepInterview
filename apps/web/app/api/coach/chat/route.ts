@@ -66,6 +66,7 @@ export async function POST(request: Request) {
     );
   }
 
+  if (body.session_id === "anonymous") return NextResponse.json(mockReply(body.query));
   try {
     const secret = serverEnv.internalApiSecret;
     const upstream = await fetch(`${serverEnv.agentApiUrl}/api/coach/chat`, {
@@ -73,6 +74,7 @@ export async function POST(request: Request) {
       headers: {
         "Content-Type": "application/json",
         ...(secret ? { "x-internal-secret": secret } : {}),
+        ...(user ? { "x-user-id": user.id } : {}),
       },
       body: JSON.stringify({
         session_id: body.session_id,
@@ -83,16 +85,17 @@ export async function POST(request: Request) {
       signal: AbortSignal.timeout(30_000),
     });
 
-    if (!upstream.ok) return NextResponse.json(mockReply(body.query));
+    if (!upstream.ok) return NextResponse.json(
+      { error: "教练服务暂不可用或无权访问此面试，请稍后重试" }, { status: upstream.status },
+    );
 
     const json = await upstream.json();
     const parsed = CoachReplySchema.safeParse(json);
     // Validate the upstream shape; fall back to a mock on drift.
-    return NextResponse.json(
-      parsed.success ? parsed.data : mockReply(body.query),
-    );
+    return parsed.success ? NextResponse.json(parsed.data)
+      : NextResponse.json({ error: "教练返回数据不完整，请重试" }, { status: 502 });
   } catch {
     // Agent unreachable / timeout / bad JSON — stay resilient.
-    return NextResponse.json(mockReply(body.query));
+    return NextResponse.json({ error: "教练服务连接失败，请重试" }, { status: 503 });
   }
 }

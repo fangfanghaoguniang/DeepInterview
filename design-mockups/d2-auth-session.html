@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>设计稿 ① 登录 / 注册 / 备考进行中 — 风格 A</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { theme: { extend: {
+  colors: { paper:'#FAFAF7', ink:'#1C1B1A', mist:'#6B6B66', line:'#E6E4DF',
+    brand:{50:'#EEF1FF',100:'#DDE3FF',500:'#4F5DD5',600:'#3D4AB8',700:'#313B93'},
+    success:'#1F7A5C', warn:'#B4690E', danger:'#B3372F' },
+  fontFamily:{ sans:['"PingFang SC"','"Hiragino Sans GB"','system-ui','sans-serif'] },
+  boxShadow:{ card:'0 1px 2px rgba(28,27,26,.05), 0 8px 24px rgba(28,27,26,.06)' }
+}}}</script>
+</head>
+<body class="bg-paper text-ink antialiased">
+
+<div class="max-w-6xl mx-auto px-6 pt-10"><p class="text-xs tracking-[.35em] text-mist">页面 /login · /signup — 440px 居中卡片（生产同宽）</p></div>
+
+<!-- ① 登录 + 注册 并排 -->
+<section class="grid md:grid-cols-2 gap-10 max-w-3xl mx-auto px-6 py-14">
+  <!-- 登录 -->
+  <div class="flex flex-col justify-center">
+    <p class="text-xs font-mono uppercase tracking-widest text-brand-600 mb-3">DeepInterview</p>
+    <div class="bg-white border border-line rounded-2xl shadow-card p-8">
+      <h1 class="text-xl font-bold mb-1">欢迎回来</h1>
+      <p class="text-sm text-mist mb-6">登录后开始准备你的下一场面试。</p>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium mb-1.5">邮箱</label>
+          <input class="w-full border border-line rounded-lg px-3.5 py-2.5 text-sm bg-white placeholder:text-mist/60" placeholder="you@example.com">
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1.5">密码</label>
+          <input type="password" class="w-full border border-line rounded-lg px-3.5 py-2.5 text-sm bg-white" placeholder="••••••••">
+        </div>
+        <button class="w-full bg-brand-600 hover:bg-brand-700 text-white rounded-lg py-2.5 text-sm font-medium">登录</button>
+        <p class="text-[13px] text-mist">还没有账号？ <a class="text-brand-600 underline underline-offset-2">注册</a></p>
+      </div>
+    </div>
+    <p class="text-[11px] text-mist mt-3 text-center">未配置 Supabase 时此卡片替换为「开发模式继续」提示（生产既有降级）</p>
+  </div>
+  <!-- 注册 -->
+  <div class="flex flex-col justify-center">
+    <p class="text-xs font-mono uppercase tracking-widest text-brand-600 mb-3">DeepInterview</p>
+    <div class="bg-white border border-line rounded-2xl shadow-card p-8">
+      <h1 class="text-xl font-bold mb-1">创建账号</h1>
+      <p class="text-sm text-mist mb-6">几分钟内就能开始练习。</p>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium mb-1.5">邮箱</label>
+          <input class="w-full border border-line rounded-lg px-3.5 py-2.5 text-sm bg-white" placeholder="you@example.com">
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1.5">密码</label>
+          <input type="password" class="w-full border border-line rounded-lg px-3.5 py-2.5 text-sm bg-white" placeholder="至少 6 位">
+        </div>
+        <button class="w-full bg-brand-600 hover:bg-brand-700 text-white rounded-lg py-2.5 text-sm font-medium">创建账号</button>
+        <p class="text-[13px] text-mist">已有账号？ <a class="text-brand-600 underline underline-offset-2">登录</a></p>
+      </div>
+      <p class="text-[12px] text-mist mt-4 leading-relaxed border-t border-line pt-3">注册后请查收确认邮件，再回到登录页。</p>
+    </div>
+  </div>
+</section>
+
+<div class="max-w-6xl mx-auto px-6"><p class="text-xs tracking-[.35em] text-mist">页面 /session/[id] — 920px 单页状态机（生产同宽）：进度态 / 完成态「我们发现了什么」/ 页尾状态带</p><div class="h-px bg-line mt-3 mb-0"></div></div>
+
+<!-- ② session 页 -->
+<section class="max-w-[920px] mx-auto px-6 py-14 space-y-14">
+
+  <!-- 进度态 -->
+  <div>
+    <header class="flex items-center justify-between mb-8">
+      <p class="text-xs font-mono uppercase tracking-widest text-brand-600">DeepInterview</p>
+      <span class="text-xs border border-line rounded-full px-2.5 py-1 text-mist">准备中</span>
+    </header>
+    <p class="text-[11px] text-mist -mt-5 mb-6">↑ 页眉右侧是<strong>状态徽章</strong>（准备中/就绪/需要补充/出错/停滞/未找到——六态同源）。本页没有语言开关，上一稿画的「中文/EN」是虚构，已撤。</p>
+    <h1 class="text-2xl font-bold mb-1.5">正在为你准备面试</h1>
+    <p class="text-sm text-mist mb-6">Agent 正在读取你的材料并调研目标岗位，稍候片刻。</p>
+
+    <!-- 总体进度：真实结构 = 一条总进度条（已完成步数/5 + %），不是每步独立进度条 -->
+    <div class="mb-4">
+      <div class="flex items-center justify-between text-[11px] font-mono uppercase tracking-widest text-mist"><span>步骤 2 / 5</span><span>40%</span></div>
+      <div class="mt-2 h-1 bg-line rounded-full overflow-hidden"><div class="h-full bg-brand-500 rounded-full" style="width:40%"></div></div>
+    </div>
+
+    <!-- prep_warnings 警示横幅（输入质量提示，进度态与完成态共用；无警示时不出现） -->
+    <div class="mb-4 flex items-start gap-2 border border-line bg-brand-50/60 rounded-xl px-3.5 py-2.5 text-[13px] text-ink/80"><span class="text-warn mt-px">⚠</span><span><strong>提示：</strong>岗位描述偏短，调研与出题的针对性可能打折。</span></div>
+
+    <!-- 五步清单：✓完成（右侧 DONE 小标）/ spinner 进行中 / 灰点未开始 -->
+    <div class="bg-white border border-line rounded-2xl shadow-card py-2">
+      <div class="flex items-center gap-3 px-5 py-3">
+        <span class="w-5 h-5 rounded-full bg-success/15 text-success grid place-items-center text-[10px] shrink-0">✓</span>
+        <p class="text-sm text-ink/80 flex-1">解析简历</p>
+        <span class="text-[10px] font-mono uppercase tracking-widest text-success">完成</span>
+      </div>
+      <div class="flex items-center gap-3 px-5 py-3">
+        <span class="w-5 h-5 rounded-full bg-success/15 text-success grid place-items-center text-[10px] shrink-0">✓</span>
+        <p class="text-sm text-ink/80 flex-1">解析岗位描述</p>
+        <span class="text-[10px] font-mono uppercase tracking-widest text-success">完成</span>
+      </div>
+      <div class="flex items-center gap-3 px-5 py-3 rounded-xl bg-brand-50/70 mx-1">
+        <span class="w-5 h-5 rounded-full border-2 border-brand-500 border-t-transparent animate-spin shrink-0"></span>
+        <p class="text-sm font-medium text-ink flex-1">调研 字节跳动</p>
+      </div>
+      <div class="flex items-center gap-3 px-5 py-3 text-mist">
+        <span class="w-5 grid place-items-center shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-line"></span></span>
+        <p class="text-sm flex-1">匹配能力差距</p>
+      </div>
+      <div class="flex items-center gap-3 px-5 py-3 text-mist">
+        <span class="w-5 grid place-items-center shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-line"></span></span>
+        <p class="text-sm flex-1">规划面试题目</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 完成态 bento -->
+  <div>
+    <div class="flex items-end justify-between mb-6">
+      <div>
+        <h2 class="text-2xl font-bold">我们发现了什么</h2>
+        <p class="text-sm text-mist mt-1">为你量身定制这场 <b class="text-ink/80">后端高级工程师</b> 面试的依据</p>
+      </div>
+      <span class="text-xs bg-success/10 text-success rounded-full px-2.5 py-1">就绪</span>
+    </div>
+    <!-- 真实结构：五卡三列（md:grid-cols-3），候选人 1 列，其余四张各占 2 列 -->
+    <div class="grid grid-cols-3 gap-4">
+      <!-- ① 候选人（1列） -->
+      <div class="bg-white border border-line rounded-2xl shadow-card p-5 flex flex-col">
+        <p class="text-xs font-mono uppercase tracking-widest text-mist mb-1.5">候选人</p>
+        <p class="text-lg font-bold mb-1">你</p>
+        <p class="text-sm leading-relaxed text-ink/80">6 年后端经验，金融与电商方向</p>
+        <div class="flex items-center gap-2 mt-2 text-xs text-mist">
+          <span class="bg-brand-100 text-brand-700 rounded-md px-1.5 py-0.5">Senior</span>
+          <span>6 年经验</span>
+        </div>
+        <p class="text-[10px] font-mono uppercase tracking-widest text-mist/70 mt-3 mb-1.5">核心技能</p>
+        <div class="flex flex-wrap gap-1.5">
+          <span class="text-[11px] border border-line rounded-md px-2 py-0.5">Go</span><span class="text-[11px] border border-line rounded-md px-2 py-0.5">Kafka</span><span class="text-[11px] border border-line rounded-md px-2 py-0.5">分布式事务</span><span class="text-[11px] border border-line rounded-md px-2 py-0.5 text-mist">+5</span>
+        </div>
+      </div>
+      <!-- ② 目标岗位（2列：必备/加分双栏 + 技术栈 chips） -->
+      <div class="col-span-2 bg-white border border-line rounded-2xl shadow-card p-5">
+        <p class="text-xs font-mono uppercase tracking-widest text-mist mb-1.5">目标岗位</p>
+        <p class="text-lg font-bold mb-3">后端高级工程师</p>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <p class="text-[10px] font-mono uppercase tracking-widest text-mist/70 mb-1.5">必备项</p>
+            <ul class="space-y-1 text-[13px] text-ink/80">
+              <li class="flex gap-2"><span class="mt-1.5 w-1 h-1 rounded-full bg-brand-500 shrink-0"></span>高并发系统设计</li>
+              <li class="flex gap-2"><span class="mt-1.5 w-1 h-1 rounded-full bg-brand-500 shrink-0"></span>存储选型与容量规划</li>
+              <li class="flex gap-2"><span class="mt-1.5 w-1 h-1 rounded-full bg-brand-500 shrink-0"></span>跨团队协作</li>
+            </ul>
+          </div>
+          <div>
+            <p class="text-[10px] font-mono uppercase tracking-widest text-mist/70 mb-1.5">加分项</p>
+            <ul class="space-y-1 text-[13px] text-mist">
+              <li class="flex gap-2"><span class="mt-1.5 w-1 h-1 rounded-full bg-line shrink-0"></span>开源贡献</li>
+              <li class="flex gap-2"><span class="mt-1.5 w-1 h-1 rounded-full bg-line shrink-0"></span>大模型工程经验</li>
+            </ul>
+          </div>
+        </div>
+        <p class="text-[10px] font-mono uppercase tracking-widest text-mist/70 mt-3 mb-1.5">技术栈</p>
+        <div class="flex flex-wrap gap-1.5">
+          <span class="text-[11px] border border-line rounded-md px-2 py-0.5">Go</span><span class="text-[11px] border border-line rounded-md px-2 py-0.5">Kubernetes</span><span class="text-[11px] border border-line rounded-md px-2 py-0.5">MySQL</span><span class="text-[11px] border border-line rounded-md px-2 py-0.5">gRPC</span>
+        </div>
+      </div>
+      <!-- ③ 公司情报（2列：摘要 + 行业 + 来源外链 chips；无情报时显示诚实占位文案） -->
+      <div class="col-span-2 bg-white border border-line rounded-2xl shadow-card p-5">
+        <p class="text-xs font-mono uppercase tracking-widest text-mist mb-1.5">公司情报</p>
+        <p class="text-lg font-bold mb-2">字节跳动</p>
+        <p class="text-sm leading-relaxed text-ink/80">以推荐系统与高并发基建著称，面试重视工程落地与数据驱动决策。</p>
+        <p class="text-xs text-mist mt-1.5">互联网 · 全球化业务</p>
+        <p class="text-[10px] font-mono uppercase tracking-widest text-mist/70 mt-3 mb-1.5">来源</p>
+        <div class="flex flex-wrap gap-1.5">
+          <span class="inline-flex items-center gap-1 text-[11px] border border-line rounded-md px-2 py-1 text-ink/80"><span class="text-mist">↗</span>字节技术团队博客</span>
+          <span class="inline-flex items-center gap-1 text-[11px] border border-line rounded-md px-2 py-1 text-ink/80"><span class="text-mist">↗</span>后端面经汇总（2025）</span>
+          <span class="inline-flex items-center gap-1 text-[11px] border border-line rounded-md px-2 py-1 text-ink/80"><span class="text-mist">↗</span>公司年报节选</span>
+        </div>
+      </div>
+      <!-- ④ 你的匹配度（2列：摘要 + ✓优势/⚠差距双栏 + 命中技能 chips） -->
+      <div class="col-span-2 bg-white border border-line rounded-2xl shadow-card p-5">
+        <p class="text-xs font-mono uppercase tracking-widest text-mist mb-1.5">你的匹配度</p>
+        <p class="text-lg font-bold mb-2">你与岗位的差距集中在规模经验</p>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <p class="text-[10px] font-mono uppercase tracking-widest text-success mb-1.5">优势</p>
+            <ul class="space-y-1 text-[13px] text-ink/80">
+              <li class="flex gap-2"><span class="text-success shrink-0">✓</span>消息队列实战</li>
+              <li class="flex gap-2"><span class="text-success shrink-0">✓</span>支付一致性方案</li>
+            </ul>
+          </div>
+          <div>
+            <p class="text-[10px] font-mono uppercase tracking-widest text-brand-600 mb-1.5">待验证差距</p>
+            <ul class="space-y-1 text-[13px] text-ink/80">
+              <li class="flex gap-2"><span class="text-warn shrink-0">⚠</span>万级 QPS 容量估算</li>
+              <li class="flex gap-2"><span class="text-warn shrink-0">⚠</span>多地域部署经验</li>
+            </ul>
+          </div>
+        </div>
+        <p class="text-[10px] font-mono uppercase tracking-widest text-mist/70 mt-3 mb-1.5">命中技能</p>
+        <div class="flex flex-wrap gap-1.5">
+          <span class="text-[11px] bg-success/10 text-success rounded-md px-2 py-0.5">Go</span><span class="text-[11px] bg-success/10 text-success rounded-md px-2 py-0.5">Kafka</span><span class="text-[11px] bg-success/10 text-success rounded-md px-2 py-0.5">分布式事务</span>
+        </div>
+      </div>
+      <!-- ⑤ 面试计划（2列：题数预算 + 流程 chips + 难度直方图） -->
+      <div class="col-span-2 bg-white border border-line rounded-2xl shadow-card p-5">
+        <p class="text-xs font-mono uppercase tracking-widest text-mist mb-1.5">面试计划</p>
+        <p class="text-lg font-bold mb-3">9 题 · 约 45 分钟</p>
+        <p class="text-[10px] font-mono uppercase tracking-widest text-mist/70 mb-1.5">流程</p>
+        <div class="flex flex-wrap gap-1.5">
+          <span class="text-[11px] border border-line rounded-full px-2.5 py-1 text-ink/80">自我介绍</span><span class="text-[11px] border border-line rounded-full px-2.5 py-1 text-ink/80">行为面</span><span class="text-[11px] border border-line rounded-full px-2.5 py-1 text-ink/80">技术深挖</span><span class="text-[11px] border border-line rounded-full px-2.5 py-1 text-ink/80">编码</span><span class="text-[11px] border border-line rounded-full px-2.5 py-1 text-ink/80">收尾</span>
+        </div>
+        <p class="text-[10px] font-mono uppercase tracking-widest text-mist/70 mt-3 mb-1.5">难度分布</p>
+        <div class="flex items-end gap-2">
+          <div class="flex flex-col items-center gap-1"><div class="h-12 flex items-end"><div class="w-6 rounded-t bg-brand-50" style="height:33%"><div class="h-1 w-full rounded-t bg-brand-500"></div></div></div><span class="text-[10px] font-mono text-mist">L1</span></div>
+          <div class="flex flex-col items-center gap-1"><div class="h-12 flex items-end"><div class="w-6 rounded-t bg-brand-50" style="height:50%"><div class="h-1 w-full rounded-t bg-brand-500"></div></div></div><span class="text-[10px] font-mono text-mist">L2</span></div>
+          <div class="flex flex-col items-center gap-1"><div class="h-12 flex items-end"><div class="w-6 rounded-t bg-brand-50" style="height:100%"><div class="h-1 w-full rounded-t bg-brand-500"></div></div></div><span class="text-[10px] font-mono text-mist">L3</span></div>
+          <div class="flex flex-col items-center gap-1"><div class="h-12 flex items-end"><div class="w-6 rounded-t bg-brand-50" style="height:67%"><div class="h-1 w-full rounded-t bg-brand-500"></div></div></div><span class="text-[10px] font-mono text-mist">L4</span></div>
+        </div>
+      </div>
+    </div>
+    <!-- 真实 CTA：两个按钮并排（主按钮带 → 图标 + 次级「返回设置」按钮），非「文字链接」 -->
+    <div class="mt-6 flex items-center gap-3">
+      <button class="bg-brand-600 hover:bg-brand-700 text-white rounded-lg px-8 py-3 text-sm font-medium">开始面试 →</button>
+      <button class="border border-line bg-white rounded-lg px-6 py-3 text-sm font-medium text-ink hover:bg-paper">返回设置</button>
+    </div>
+  </div>
+
+  <!-- ③ 页尾状态带（代表性覆盖）：六态同源，此处画 rejected 全样例 + 其余终端态枚举注 -->
+  <div>
+    <div class="h-px bg-line mb-10"></div>
+    <p class="text-xs font-mono uppercase tracking-widest text-mist mb-2">状态带 · rejected（需要补充）</p>
+    <p class="text-[11px] text-mist mb-6">准备被拒时的真实形态：居中 560px 卡片，带 ⚠ 问题清单 + 「建议」提示块 + 单一「返回设置」按钮。</p>
+    <div class="max-w-[560px] mx-auto bg-white border border-line rounded-2xl shadow-card p-6">
+      <p class="text-xs font-mono uppercase tracking-widest text-brand-600 mb-2">准备未完成</p>
+      <h3 class="text-xl font-bold mb-1">材料还差一点</h3>
+      <p class="text-sm text-mist mb-4">Agent 无法从当前输入解析出完整面试上下文。</p>
+      <ul class="space-y-2 text-[13px] text-ink/80 mb-4">
+        <li class="flex gap-2"><span class="text-warn shrink-0">⚠</span>简历文本过短，无法提取技能与年限</li>
+        <li class="flex gap-2"><span class="text-warn shrink-0">⚠</span>岗位描述缺少技术栈信息</li>
+      </ul>
+      <div class="border border-line rounded-xl bg-paper px-4 py-3 mb-4">
+        <p class="text-[10px] font-mono uppercase tracking-widest text-mist/70 mb-1.5">建议</p>
+        <ul class="space-y-1 text-[13px] text-mist leading-relaxed">
+          <li>· 粘贴完整版简历正文而非摘要</li>
+          <li>· JD 至少包含职责与技术要求两段</li>
+          <li>· 如岗位有公司名，填写后情报调研会更准确</li>
+        </ul>
+      </div>
+      <button class="border border-line bg-white rounded-lg px-5 py-2.5 text-sm font-medium hover:bg-paper">返回设置</button>
+    </div>
+    <p class="text-[11px] text-mist mt-6 leading-relaxed">其余终端态同壳覆盖（不逐一出图）：<b>error（出错）</b>=520px 卡 + 「重试」+「返回设置」两按钮；<b>stalled（停滞）</b>=同 error 壳仅文案不同（轮询超期）；<b>not_found（未找到）</b>=同 error 壳但<b>无重试按钮</b>（会话确实不存在）。</p>
+  </div>
+</section>
+
+<div class="fixed bottom-5 right-5 bg-ink text-white text-xs rounded-full px-4 py-2 opacity-80">设计稿 ① · 待确认</div>
+</body>
+</html>

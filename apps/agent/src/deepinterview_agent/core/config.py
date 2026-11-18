@@ -60,6 +60,10 @@ class Settings(BaseSettings):
     # TTS_PROVIDER=kokoro; each needs its base URL, never an API key.
     ollama_base_url: str = "http://localhost:11434/v1"
     ollama_model: str = "qwen3:8b"
+    # Optional LLM-specific API key. When set, overrides local_api_key for the
+    # LLM path only (prep, scoring, live turn). STT and TTS continue using
+    # local_api_key. This allows e.g. DeepSeek direct + SiliconFlow for audio.
+    ollama_api_key: str = ""
     # Live tier, mirroring gemini_model / gemini_model_live: prep and scoring can
     # afford a bigger model because nobody is waiting mid-sentence; the turn loop
     # cannot. A smaller model here buys time-to-first-token on every turn.
@@ -126,6 +130,11 @@ class Settings(BaseSettings):
     # --- supabase ------------------------------------------------------------
     supabase_url: str | None = None
     supabase_service_role_key: str | None = None
+
+    # --- native postgres (local / self-hosted) --------------------------------
+    # Single DSN takes priority over Supabase when set. Example:
+    #   postgresql://postgres:mysecretpassword@localhost:5432/deepinterview
+    postgres_dsn: str | None = None
 
     # --- livekit -------------------------------------------------------------
     livekit_url: str | None = None
@@ -228,7 +237,7 @@ class Settings(BaseSettings):
     # Per-stage timeout for the (latency-tolerant) scoring pipeline; on timeout
     # or error the stage degrades to a valid fallback instead of failing the
     # whole scorecard. See post/__init__.py.
-    score_stage_timeout_sec: float = 60.0
+    score_stage_timeout_sec: float = 180.0
     # Timeout retries per scoring stage. A congested provider queues requests
     # for tens of seconds without failing them — one hard timeout then used to
     # discard work that would have landed seconds later. On TIMEOUT only (not

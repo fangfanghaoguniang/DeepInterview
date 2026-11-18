@@ -117,6 +117,23 @@ describe("createCoachToken (spoken Socratic coach room)", () => {
     });
   });
 
+  it("每轮使用独立房间，完整传递来源版本和起始目标", async () => {
+    snapshot();
+    setLiveKitEnv();
+    const first = await createCoachToken({ sessionId: "sess_123", identity: "owner",
+      runId: "run-first", version: "source-v1", entryModule: "goal-second" });
+    const second = await createCoachToken({ sessionId: "sess_123", identity: "owner",
+      runId: "run-second", version: "source-v1" });
+    const payload = decodePayload(first.token);
+    expect((payload.video as { room: string }).room).toBe("coach_sess_123_run-first");
+    expect((decodePayload(second.token).video as { room: string }).room).toBe("coach_sess_123_run-second");
+    const config = payload.roomConfig as { agents: { metadata: string }[] };
+    expect(JSON.parse(config.agents[0]!.metadata)).toEqual({ session_id: "sess_123",
+      run_id: "run-first", version: "source-v1", entry_module: "goal-second" });
+    const defaultConfig = decodePayload(second.token).roomConfig as { agents: { metadata: string }[] };
+    expect(JSON.parse(defaultConfig.agents[0]!.metadata).entry_module).toBeNull();
+  });
+
   it("honors LIVEKIT_COACH_AGENT_NAME so web and coach worker stay in sync", async () => {
     snapshot();
     setLiveKitEnv();

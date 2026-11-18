@@ -1,6 +1,6 @@
 "use server";
 
-import type { PrepRequest } from "@deepinterview/shared";
+import { PrepRequestSchema, type PrepRequest } from "@deepinterview/shared";
 import { features } from "@deepinterview/ee";
 import { requestPrep } from "@/lib/api";
 import { getUser } from "@/lib/supabase/server";
@@ -57,10 +57,11 @@ export async function startSession(
     // row (sessions.user_id). Without this the row is unowned (NULL) and the
     // report's RLS read (auth.uid() = user_id) can never see it, so the page
     // falls back to sample data. Anonymous/dev has no user → omit it.
-    const { session_id } = await requestPrep({
-      ...input,
-      user_id: userId ?? undefined,
-    });
+    const request = PrepRequestSchema.parse({ ...input, user_id: userId ?? undefined });
+    if (Boolean(request.source_session_id) !== Boolean(request.focus_competency)) {
+      return { ok: false, error: "来源面试和重点能力必须同时提供" };
+    }
+    const { session_id } = await requestPrep(request);
     return { ok: true, session_id };
   } catch (err) {
     const message =

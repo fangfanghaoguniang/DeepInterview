@@ -1,0 +1,280 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "session_id": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "language": {
+      "type": "string",
+      "enum": [
+        "en",
+        "vi",
+        "es",
+        "zh",
+        "hi",
+        "id",
+        "pt",
+        "fr",
+        "de",
+        "ja"
+      ]
+    },
+    "role": {
+      "default": null,
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "company": {
+      "default": null,
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "idle",
+        "preparing",
+        "ready",
+        "failed",
+        "empty"
+      ]
+    },
+    "error": {
+      "default": null,
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "targets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "module": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "competency": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "unseen",
+                  "learning",
+                  "shaky",
+                  "mastered"
+                ]
+              },
+              "est_min": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "rationale": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "competency",
+              "status",
+              "est_min",
+              "rationale"
+            ]
+          },
+          "growth": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "material_status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "ready",
+              "failed"
+            ]
+          },
+          "error": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cards": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "competency": {
+                  "type": "string"
+                },
+                "front": {
+                  "type": "string"
+                },
+                "back": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string",
+                  "enum": [
+                    "interview",
+                    "drill"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "competency",
+                "front",
+                "back",
+                "source"
+              ]
+            }
+          }
+        },
+        "required": [
+          "module",
+          "growth",
+          "actions",
+          "material_status"
+        ]
+      }
+    },
+    "coach_run": {
+      "default": null,
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            },
+            "entry_module": {
+              "default": null,
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "running",
+                "pending",
+                "ready",
+                "failed"
+              ]
+            },
+            "started_at": {
+              "type": "number"
+            },
+            "feedback": {
+              "default": [],
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "module_id": {
+                    "type": "string"
+                  },
+                  "mastery": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "unseen",
+                          "learning",
+                          "shaky",
+                          "mastered"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "note": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "module_id",
+                  "note"
+                ]
+              }
+            }
+          },
+          "required": [
+            "id",
+            "version",
+            "status",
+            "started_at"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "session_id",
+    "version",
+    "language",
+    "status",
+    "targets"
+  ]
+}

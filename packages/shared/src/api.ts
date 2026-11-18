@@ -2,6 +2,7 @@ import { z } from "zod";
 import { CitationSchema } from "./company";
 import { LanguageSchema, LanguageModeSchema } from "./primitives";
 import { ScoreCardSchema } from "./score";
+import { FocusSourceSchema } from "./interview-context";
 
 export const PrepRequestSchema = z.object({
   cv_url: z.string(),
@@ -12,6 +13,8 @@ export const PrepRequestSchema = z.object({
   // still validates; when present the agent stamps it on the `sessions` row so
   // the report's RLS read (`auth.uid() = user_id`) can see the row.
   user_id: z.string().optional(),
+  source_session_id: z.string().optional(),
+  focus_competency: z.string().optional(),
 });
 export type PrepRequest = z.infer<typeof PrepRequestSchema>;
 
@@ -19,6 +22,12 @@ export const PrepResponseSchema = z.object({
   session_id: z.string(),
 });
 export type PrepResponse = z.infer<typeof PrepResponseSchema>;
+
+export const PrepSourceSchema = z.object({
+  input: PrepRequestSchema,
+  focus: FocusSourceSchema,
+});
+export type PrepSource = z.infer<typeof PrepSourceSchema>;
 
 export const ScoreRequestSchema = z.object({
   session_id: z.string(),

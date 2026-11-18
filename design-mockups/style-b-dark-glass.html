@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>风格 B · 深色玻璃渐变风 — DeepInterview 样张</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { theme: { extend: {
+  colors: {
+    night: '#070A14', panel:'#0C1120',
+    glass:'rgba(255,255,255,.05)',
+    violet:'#8B5CF6', cyan:'#22D3EE', rose:'#FB7185', lime:'#A3E635',
+    mute:'#8A93AB'
+  },
+  fontFamily: { sans: ['"PingFang SC"','"Hiragino Sans GB"','system-ui','sans-serif'] },
+}}}</script>
+<style>
+  body{background:#070A14;color:#E7EAF3}
+  .bg-scene{
+    background:
+      radial-gradient(52rem 32rem at 82% -6%, rgba(139,92,246,.22), transparent 60%),
+      radial-gradient(44rem 30rem at 8% 12%, rgba(34,211,238,.14), transparent 60%),
+      radial-gradient(40rem 36rem at 50% 108%, rgba(251,113,133,.10), transparent 60%),
+      #070A14;
+  }
+  .glass{background:linear-gradient(160deg,rgba(255,255,255,.07),rgba(255,255,255,.025));border:1px solid rgba(255,255,255,.09);backdrop-filter:blur(14px);border-radius:1.25rem}
+  .glass-hi{box-shadow:0 0 0 1px rgba(139,92,246,.35),0 8px 40px rgba(139,92,246,.18)}
+  .grad-text{background:linear-gradient(92deg,#A78BFA 0%,#22D3EE 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .grad-btn{background:linear-gradient(92deg,#7C3AED,#4F46E5 55%,#0891B2);box-shadow:0 6px 28px rgba(99,102,241,.4)}
+  .grad-btn:hover{box-shadow:0 8px 36px rgba(99,102,241,.55)}
+  .ring-soft{box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+  .band{letter-spacing:.4em;font-size:.7rem;color:#8A93AB}
+  .chip-on{background:linear-gradient(92deg,rgba(139,92,246,.28),rgba(34,211,238,.18));border:1px solid rgba(167,139,250,.5);color:#DDD6FE}
+  .track{background:rgba(255,255,255,.08)}
+</style>
+</head>
+<body class="bg-scene antialiased min-h-screen">
+
+<!-- 导航 -->
+<header class="sticky top-0 z-50 backdrop-blur-xl bg-night/60 border-b border-white/5">
+  <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+    <div class="flex items-center gap-2.5">
+      <div class="w-8 h-8 rounded-xl grid place-items-center grad-btn font-bold text-sm text-white">DI</div>
+      <span class="font-semibold">DeepInterview</span>
+      <span class="ml-1 text-[11px] text-violet-200/70 border border-white/10 rounded-full px-2 py-0.5">风格 B · 深色玻璃渐变</span>
+    </div>
+    <nav class="hidden md:flex items-center gap-7 text-sm text-mute">
+      <a class="hover:text-white" href="#home">首页</a>
+      <a class="hover:text-white" href="#setup">开始面试</a>
+      <a class="hover:text-white" href="#report">报告</a>
+      <a class="hover:text-white" href="#">定价</a>
+      <button class="hover:text-white text-sm">登录</button>
+      <button class="grad-btn text-white text-sm rounded-xl px-4 py-2">免费注册</button>
+    </nav>
+  </div>
+</header>
+
+<!-- ① 首页 -->
+<section id="home" class="max-w-6xl mx-auto px-6 pt-24 pb-16">
+  <div class="text-center max-w-3xl mx-auto">
+    <span class="inline-flex items-center gap-2 text-xs text-cyan border border-white/10 rounded-full px-3.5 py-1.5 mb-7 ring-soft"><span class="w-1.5 h-1.5 rounded-full bg-cyan animate-pulse"></span>语音实时对答 · 本地可部署 · 数据不出机器</span>
+    <h1 class="text-6xl font-bold tracking-tight leading-[1.12]">
+      像真实终面一样<br><span class="grad-text">练习你要去的那一场</span>
+    </h1>
+    <p class="mt-6 text-lg text-mute leading-relaxed">选定岗位与级别，AI 面试官连续追问四十分钟；结束后拿到含七维能力评分、逐题复盘与范文的完整报告，并把短板变成下一份练习计划。</p>
+    <div class="mt-10 flex justify-center gap-4">
+      <button class="grad-btn text-white rounded-xl px-7 py-3.5 text-base font-medium">开始第一场模拟面试</button>
+      <button class="glass px-7 py-3.5 text-base text-white/85 hover:border-violet/50">看一份示例报告 →</button>
+    </div>
+  </div>
+
+  <div class="grid md:grid-cols-3 gap-5 mt-20">
+    <div class="glass p-6 ring-soft">
+      <div class="text-3xl mb-3">🎙</div>
+      <h3 class="font-semibold mb-1.5 text-lg">连续追问，不是念题</h3>
+      <p class="text-sm text-mute leading-relaxed">面试官基于你的回答决定下一个问题，模拟真实压力面的 branching 与打断。</p>
+    </div>
+    <div class="glass p-6 ring-soft">
+      <div class="text-3xl mb-3">📊</div>
+      <h3 class="font-semibold mb-1.5 text-lg">七维评分 + 逐题复盘</h3>
+      <p class="text-sm text-mute leading-relaxed">每个维度都有依据与范文，不留"玄学打分"，短板直接进补课计划。</p>
+    </div>
+    <div class="glass p-6 ring-soft glass-hi">
+      <div class="text-3xl mb-3">🗂</div>
+      <h3 class="font-semibold mb-1.5 text-lg">成长闭环</h3>
+      <p class="text-sm text-mute leading-relaxed">面试 → 报告 → 学习计划 → 闪卡补题 → 苏格拉底语音教练，一轮一轮把分数磨上去。</p>
+    </div>
+  </div>
+</section>
+
+<div class="max-w-6xl mx-auto px-6 pt-14"><p class="band">页面二 · 面试配置 /setup</p><div class="h-px mt-3 bg-gradient-to-r from-white/10 to-transparent"></div></div>
+
+<!-- ② 配置页 -->
+<section id="setup" class="max-w-6xl mx-auto px-6 py-14">
+  <div class="grid md:grid-cols-12 gap-8">
+    <div class="md:col-span-7 space-y-8">
+      <div>
+        <h2 class="text-3xl font-bold tracking-tight">定制你的面试</h2>
+        <p class="text-mute text-sm mt-1.5">全部字段都有默认值，直接开面也完全可以。</p>
+      </div>
+
+      <div class="glass p-7 space-y-7 ring-soft">
+        <div>
+          <label class="block text-sm font-medium mb-3 text-white/85">岗位方向</label>
+          <div class="grid grid-cols-3 gap-3">
+            <button class="rounded-xl px-4 py-3 text-left chip-on"><span class="block text-sm font-semibold">后端工程师</span><span class="block text-xs text-mute mt-0.5">senior · 32 题库</span></button>
+            <button class="rounded-xl px-4 py-3 text-left border border-white/10 hover:border-violet/40"><span class="block text-sm font-semibold">前端工程师</span><span class="block text-xs text-mute mt-0.5">mid · 28 题库</span></button>
+            <button class="rounded-xl px-4 py-3 text-left border border-white/10 hover:border-violet/40"><span class="block text-sm font-semibold">数据科学家</span><span class="block text-xs text-mute mt-0.5">mid · 21 题库</span></button>
+            <button class="rounded-xl px-4 py-3 text-left border border-white/10 hover:border-violet/40"><span class="block text-sm font-semibold">AI 工程师</span><span class="block text-xs text-mute mt-0.5">senior · 26 题库</span></button>
+            <button class="rounded-xl px-4 py-3 text-left border border-white/10 hover:border-violet/40"><span class="block text-sm font-semibold">产品经理</span><span class="block text-xs text-mute mt-0.5">mid · 18 题库</span></button>
+            <button class="rounded-xl px-4 py-3 text-sm text-mute border border-dashed border-white/15 hover:border-violet/40 hover:text-white/80">从技能包导入…</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-6">
+          <div>
+            <label class="block text-sm font-medium mb-3 text-white/85">目标级别</label>
+            <div class="flex rounded-xl border border-white/10 overflow-hidden text-sm">
+              <button class="flex-1 py-2.5 text-mute hover:bg-white/5">junior</button>
+              <button class="flex-1 py-2.5 text-mute hover:bg-white/5 border-l border-white/10">mid</button>
+              <button class="flex-1 py-2.5 chip-on font-medium">senior</button>
+              <button class="flex-1 py-2.5 text-mute hover:bg-white/5 border-l border-white/10">staff</button>
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-3 text-white/85">面试语言</label>
+            <div class="flex rounded-xl border border-white/10 overflow-hidden text-sm">
+              <button class="flex-1 py-2.5 chip-on font-medium">中文</button>
+              <button class="flex-1 py-2.5 text-mute border-l border-white/10 hover:bg-white/5">English</button>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium mb-3 text-white/85">面试模式</label>
+          <div class="grid grid-cols-2 gap-3">
+            <button class="rounded-xl border border-white/10 p-4 text-left hover:border-violet/40">
+              <span class="text-sm font-semibold">文字面试</span>
+              <span class="block text-xs text-mute mt-1">打字作答，逐题推进，适合通勤与安静环境。</span>
+            </button>
+            <button class="rounded-xl p-4 text-left chip-on glass-hi">
+              <span class="text-sm font-semibold">语音面试 <span class="ml-1 text-[10px] grad-text font-bold align-middle">✦ 推荐</span></span>
+              <span class="block text-xs text-mute mt-1">实时语音对答 + 逐字稿，最接近真实面试压力。</span>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium mb-3 text-white/85">题目侧重（可多选）</label>
+          <div class="flex flex-wrap gap-2 text-sm">
+            <span class="chip-on rounded-full px-3.5 py-1.5">系统设计</span>
+            <span class="chip-on rounded-full px-3.5 py-1.5">分布式一致性</span>
+            <span class="chip-on rounded-full px-3.5 py-1.5">项目深挖</span>
+            <span class="border border-white/10 text-mute rounded-full px-3.5 py-1.5 hover:border-violet/40">数据库</span>
+            <span class="border border-white/10 text-mute rounded-full px-3.5 py-1.5 hover:border-violet/40">行为面</span>
+            <span class="border border-dashed border-white/15 text-mute rounded-full px-3.5 py-1.5">＋ 自定义</span>
+          </div>
+        </div>
+      </div>
+
+      <button class="grad-btn w-full md:w-auto text-white rounded-xl px-12 py-4 text-base font-medium">开始语音面试 →</button>
+    </div>
+
+    <aside class="md:col-span-5">
+      <div class="sticky top-24 space-y-5">
+        <div class="glass p-6 ring-soft">
+          <h3 class="font-semibold mb-4 text-white/90">本场确认</h3>
+          <dl class="text-sm space-y-3">
+            <div class="flex justify-between"><dt class="text-mute">岗位</dt><dd class="font-medium">后端工程师 · senior</dd></div>
+            <div class="flex justify-between"><dt class="text-mute">语言</dt><dd class="font-medium">中文</dd></div>
+            <div class="flex justify-between"><dt class="text-mute">模式</dt><dd class="font-medium">语音 · 手动判停</dd></div>
+            <div class="flex justify-between"><dt class="text-mute">预计时长</dt><dd class="font-medium">35–45 分钟</dd></div>
+            <div class="flex justify-between border-t border-white/10 pt-3"><dt class="text-mute">侧重条目</dt><dd class="font-medium">3 项</dd></div>
+          </dl>
+        </div>
+        <div class="glass p-6 ring-soft border-cyan/20">
+          <h3 class="font-semibold mb-2 text-cyan">语音面试前的小检查</h3>
+          <ul class="text-sm text-mute space-y-2 leading-relaxed list-disc list-inside">
+            <li>浏览器已授权麦克风（面试中按住说话）</li>
+            <li>建议使用耳机，避免回声干扰转写</li>
+            <li>长答案请一口气说完再点「回答完毕」</li>
+          </ul>
+        </div>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<div class="max-w-6xl mx-auto px-6 pt-8"><p class="band">页面三 · 面试报告 /report/[id]</p><div class="h-px mt-3 bg-gradient-to-r from-white/10 to-transparent"></div></div>
+
+<!-- ③ 报告页 -->
+<section id="report" class="max-w-6xl mx-auto px-6 py-14 pb-28">
+  <div class="flex flex-wrap items-end justify-between gap-4 mb-8">
+    <div>
+      <h2 class="text-3xl font-bold tracking-tight">面试报告 · <span class="grad-text">后端高级工程师</span></h2>
+      <p class="text-sm text-mute mt-2">2026-11-14 20:30 · 语音面试 · 9 问 / 41 分钟</p>
+    </div>
+    <div class="flex gap-3">
+      <button class="glass px-4 py-2 text-sm text-cyan hover:border-cyan/40 rounded-xl">导出 PDF</button>
+      <button class="grad-btn px-4 py-2 text-sm text-white rounded-xl">再练一场</button>
+    </div>
+  </div>
+
+  <div class="grid md:grid-cols-12 gap-5 mb-5">
+    <div class="md:col-span-4 glass p-7 ring-soft flex flex-col items-center justify-center text-center">
+      <div class="relative">
+        <svg width="150" height="150" viewBox="0 0 150 150" class="-rotate-90">
+          <defs><linearGradient id="gB" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#8B5CF6"/><stop offset="100%" stop-color="#22D3EE"/></linearGradient></defs>
+          <circle cx="75" cy="75" r="62" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="11"/>
+          <circle cx="75" cy="75" r="62" fill="none" stroke="url(#gB)" stroke-width="11" stroke-linecap="round" stroke-dasharray="389.6" stroke-dashoffset="109"/>
+        </svg>
+        <div class="absolute inset-0 grid place-items-center"><div><span class="text-5xl font-bold">72</span><span class="text-mute text-sm">/100</span></div></div>
+      </div>
+      <p class="text-sm text-rose mt-4">接近但未达目标线（80）</p>
+      <p class="text-xs text-mute mt-1.5">较上一场 <span class="text-lime font-medium">+5</span></p>
+    </div>
+
+    <div class="md:col-span-8 glass p-7 ring-soft">
+      <h3 class="font-semibold mb-5 text-white/90">七维能力评分</h3>
+      <div class="grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
+        <div><div class="flex justify-between mb-1.5"><span class="text-mute">技术深度</span><span class="font-semibold">74</span></div><div class="track h-2 rounded-full"><div class="h-2 rounded-full bg-gradient-to-r from-violet to-indigo-400" style="width:74%"></div></div></div>
+        <div><div class="flex justify-between mb-1.5"><span class="text-mute">系统设计</span><span class="font-semibold text-rose">58</span></div><div class="track h-2 rounded-full"><div class="h-2 rounded-full bg-rose" style="width:58%"></div></div></div>
+        <div><div class="flex justify-between mb-1.5"><span class="text-mute">编码实践</span><span class="font-semibold">80</span></div><div class="track h-2 rounded-full"><div class="h-2 rounded-full bg-gradient-to-r from-violet to-cyan" style="width:80%"></div></div></div>
+        <div><div class="flex justify-between mb-1.5"><span class="text-mute">项目深度</span><span class="font-semibold">71</span></div><div class="track h-2 rounded-full"><div class="h-2 rounded-full bg-gradient-to-r from-violet to-indigo-400" style="width:71%"></div></div></div>
+        <div><div class="flex justify-between mb-1.5"><span class="text-mute">沟通表达</span><span class="font-semibold text-lime">84</span></div><div class="track h-2 rounded-full"><div class="h-2 rounded-full bg-lime/80" style="width:84%"></div></div></div>
+        <div><div class="flex justify-between mb-1.5"><span class="text-mute">问题拆解</span><span class="font-semibold text-amber-300">69</span></div><div class="track h-2 rounded-full"><div class="h-2 rounded-full bg-amber-400/80" style="width:69%"></div></div></div>
+        <div><div class="flex justify-between mb-1.5"><span class="text-mute">复盘与取舍</span><span class="font-semibold">76</span></div><div class="track h-2 rounded-full"><div class="h-2 rounded-full bg-gradient-to-r from-violet to-cyan" style="width:76%"></div></div></div>
+        <div class="text-xs text-mute self-center">● 红 &lt;60 · ● 橙 60–74 · ● 渐变 ≥75</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid md:grid-cols-12 gap-5">
+    <div class="md:col-span-4 space-y-5">
+      <div class="glass p-6 ring-soft border-rose/30">
+        <h3 class="font-semibold text-rose mb-3">本轮最大短板</h3>
+        <p class="text-sm leading-relaxed text-white/80"><b>系统设计中的容量估算</b>：9 问里有 3 问在此失分，典型表现为给出方案后无法回答「QPS 翻倍先瓶颈在哪」。</p>
+        <button class="mt-4 w-full rounded-xl py-2.5 text-sm text-white" style="background:linear-gradient(92deg,#E11D48,#F97316);box-shadow:0 6px 24px rgba(225,29,72,.35)">据此生成补课计划 →</button>
+      </div>
+      <div class="glass p-6 ring-soft">
+        <h3 class="font-semibold mb-3 text-white/90">面试官评语</h3>
+        <p class="text-sm text-mute leading-relaxed">"工程直觉与表达都不错，取舍论证有真实项目支撑。距离 senior 线的差距集中在系统设计的量化论证上——建议每个方案都带一组数字。"</p>
+      </div>
+    </div>
+
+    <div class="md:col-span-8">
+      <h3 class="font-semibold text-lg mb-4 text-white/90">逐题复盘</h3>
+      <div class="glass ring-soft divide-y divide-white/5 overflow-hidden">
+        <div class="px-6 py-5">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <p class="text-xs text-mute mb-1.5">Q3 · 系统设计 · <span class="text-rose font-semibold">52 分</span></p>
+              <p class="font-medium">「设计一个支持千万级日活的短链服务，读写如何分配？」</p>
+            </div>
+            <button class="text-xs text-cyan border border-cyan/30 rounded-lg px-3 py-1.5 shrink-0 hover:bg-cyan/10">看范文</button>
+          </div>
+          <p class="text-sm text-mute mt-3 leading-relaxed"><span class="text-white/75 font-medium">失分点：</span>方案选型正确（Base62 + 发号器），但全程没有量化：估算停留在"大概够用"，追问瓶颈时改口三次。</p>
+        </div>
+        <div class="px-6 py-5">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <p class="text-xs text-mute mb-1.5">Q6 · 项目深挖 · <span class="text-lime font-semibold">81 分</span></p>
+              <p class="font-medium">「讲一个你主导的线上事故，你的决策哪里可以做得更好？」</p>
+            </div>
+            <button class="text-xs text-cyan border border-cyan/30 rounded-lg px-3 py-1.5 shrink-0 hover:bg-cyan/10">看范文</button>
+          </div>
+          <p class="text-sm text-mute mt-3 leading-relaxed"><span class="text-white/75 font-medium">亮点：</span>STAR 结构完整，主动承认缓存预热缺失并给出改进后的复盘机制，取舍论证可信。</p>
+        </div>
+        <div class="px-6 py-5 text-center text-sm text-mute">其余 7 题同构展开 · 点击任意题可回放该轮逐字稿</div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="border-t border-white/5 mt-20 pt-8 text-sm text-mute flex flex-wrap justify-between gap-4">
+    <span>DeepInterview · 开源 AI 模拟面试</span>
+    <span>© 2026 · 本地部署，数据只属于你</span>
+  </footer>
+</section>
+
+<div class="fixed bottom-5 right-5 glass px-4 py-2 text-xs text-white/70">样张 · 非生产页面 · 风格 B</div>
+</body>
+</html>

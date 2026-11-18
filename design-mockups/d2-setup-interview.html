@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>设计稿 ② 面试配置 / 语音面试间 / 教练间 — 风格 A</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { theme: { extend: {
+  colors: { paper:'#FAFAF7', ink:'#1C1B1A', mist:'#6B6B66', line:'#E6E4DF',
+    brand:{50:'#EEF1FF',100:'#DDE3FF',500:'#4F5DD5',600:'#3D4AB8',700:'#313B93'},
+    success:'#1F7A5C', warn:'#B4690E', danger:'#B3372F' },
+  fontFamily:{ sans:['"PingFang SC"','"Hiragino Sans GB"','system-ui','sans-serif'] },
+  boxShadow:{ card:'0 1px 2px rgba(28,27,26,.05), 0 8px 24px rgba(28,27,26,.06)' }
+}}}</script>
+</head>
+<body class="bg-paper text-ink antialiased">
+
+<div class="max-w-6xl mx-auto px-6 pt-10"><p class="text-xs tracking-[.35em] text-mist">页面 /setup — 720px 单列向导（生产同宽，字段与顺序照搬 setup-form）</p></div>
+
+<!-- ① setup -->
+<section class="max-w-[720px] mx-auto px-6 py-12">
+  <header class="flex items-center justify-between mb-9">
+    <p class="text-xs font-mono uppercase tracking-widest text-brand-600">DeepInterview</p>
+    <div class="flex items-center gap-2.5">
+      <button class="text-xs text-mist hover:text-ink">退出登录</button>
+    </div>
+  </header>
+  <h1 class="text-3xl font-bold tracking-tight mb-1.5">设置你的面试</h1>
+  <p class="text-sm text-mist mb-3">带上你的简历和目标岗位。</p>
+  <p class="text-[11px] text-mist mb-8">↪ 真实结构：顶部有「快速演示」卡（3 个样例一键填入）；「读取简历→调研公司→规划题目」三步指示器<b>只出现在点提交后的过渡屏</b>，表单区没有，已下移至页尾示例。</p>
+
+  <!-- 快速演示卡（真实存在：3 个样例按钮一键填入） -->
+  <div class="bg-white border border-line rounded-2xl shadow-card p-5 mb-6 flex items-center justify-between gap-4">
+    <div>
+      <h2 class="text-sm font-semibold mb-0.5">快速演示</h2>
+      <p class="text-[12.5px] text-mist">不想准备真实材料？点一下即可体验完整流程。</p>
+    </div>
+    <div class="flex gap-2 shrink-0">
+      <button class="border border-line rounded-lg px-3 py-1.5 text-xs hover:border-brand-500/50 text-brand-600">后端工程师</button>
+      <button class="border border-line rounded-lg px-3 py-1.5 text-xs hover:border-brand-500/50 text-brand-600">前端工程师</button>
+      <button class="border border-line rounded-lg px-3 py-1.5 text-xs hover:border-brand-500/50 text-brand-600">产品经理</button>
+    </div>
+  </div>
+
+  <div class="space-y-5">
+    <!-- CV 卡 -->
+    <div class="bg-white border border-line rounded-2xl shadow-card p-6">
+      <h2 class="font-semibold mb-1">你的简历</h2>
+      <p class="text-[13px] text-mist mb-4">PDF 或 DOCX，我们会读取它来定制问题。</p>
+      <div class="border-2 border-dashed border-line rounded-xl py-8 text-center text-sm text-mist hover:border-brand-500/50 cursor-pointer">把 PDF / DOCX 拖到这里，或点击选择<button class="ml-2 text-brand-600 font-medium">选择文件</button></div>
+      <p class="text-[11px] text-mist/70 mt-2">最大 10MB（MAX_CV_BYTES）</p>
+      <!-- 粘贴框：真实为常驻展示，非折叠 -->
+      <p class="text-[13px] text-mist mt-4 mb-1.5">…或直接粘贴简历文本（无需上传）</p>
+      <textarea rows="3" class="w-full border border-line rounded-lg p-3 text-sm" placeholder="粘贴简历全文…"></textarea>
+    </div>
+
+    <!-- JD 卡 -->
+    <div class="bg-white border border-line rounded-2xl shadow-card p-6">
+      <h2 class="font-semibold mb-1">岗位描述</h2>
+      <p class="text-[13px] text-mist mb-3">粘贴你要面试的岗位原文。</p>
+      <textarea rows="4" class="w-full border border-line rounded-lg p-3 text-sm" placeholder="粘贴完整 JD 文本，而不是链接…"></textarea>
+    </div>
+
+    <!-- 公司 + 语言 + 人设 一行两列 -->
+    <div class="grid grid-cols-2 gap-5">
+      <div class="bg-white border border-line rounded-2xl shadow-card p-6">
+        <h2 class="font-semibold mb-1">目标公司 <span class="text-[11px] font-normal text-mist">（选填）</span></h2>
+        <p class="text-[13px] text-mist mb-3">填写后启动公司调研，为出题锚定背景。</p>
+        <input class="w-full border border-line rounded-lg px-3.5 py-2.5 text-sm" value="字节跳动">
+      </div>
+      <div class="bg-white border border-line rounded-2xl shadow-card p-6">
+        <h2 class="font-semibold mb-1">面试语言</h2>
+        <p class="text-[13px] text-mist mb-3">题目、语音与报告正文都跟随此选择。</p>
+        <!-- 真实控件：语言为下拉选择（非分段按钮）；混答为 checkbox（非开关） -->
+        <select class="w-full border border-line rounded-lg px-3 py-2.5 text-sm bg-white"><option>中文</option><option>English</option></select>
+        <label class="flex items-center gap-2 text-[13px] text-ink/80 mt-3 cursor-pointer"><input type="checkbox" class="accent-brand-600 w-4 h-4">允许与英文混答</label>
+        <p class="text-[11px] text-mist mt-2">注：生产代码当前默认英文（setup-form L85）；已拍板换肤实施时改为默认中文。</p>
+      </div>
+    </div>
+
+    <!-- 面试官人设 -->
+    <div class="bg-white border border-line rounded-2xl shadow-card p-6">
+      <h2 class="font-semibold mb-1">面试官人设</h2>
+      <p class="text-[13px] text-mist mb-4">选择主持你这场面试的数字人（真实为 4 人设，卡面是海报图）。</p>
+      <div class="grid grid-cols-4 gap-3">
+        <button class="rounded-xl border-2 border-brand-500 bg-brand-50/50 p-3 text-left"><div class="h-14 rounded-lg bg-brand-100 mb-2 grid place-items-center text-2xl">👩‍💼</div><p class="text-[13px] font-semibold text-brand-700">Dana</p><p class="text-[11px] text-mist">recruiter · 标准节奏</p></button>
+        <button class="rounded-xl border border-line p-3 text-left hover:border-brand-500/50"><div class="h-14 rounded-lg bg-line/40 mb-2 grid place-items-center text-2xl">🧑‍🎤</div><p class="text-[13px] font-semibold">Mika</p><p class="text-[11px] text-mist">anime · 温和引导</p></button>
+        <button class="rounded-xl border border-line p-3 text-left hover:border-brand-500/50"><div class="h-14 rounded-lg bg-line/40 mb-2 grid place-items-center text-2xl">🦸</div><p class="text-[13px] font-semibold">Vanguard</p><p class="text-[11px] text-mist">superhero · 高压快问</p></button>
+        <button class="rounded-xl border border-line p-3 text-left hover:border-brand-500/50"><div class="h-14 rounded-lg bg-line/40 mb-2 grid place-items-center text-2xl">👨‍🏫</div><p class="text-[13px] font-semibold">Dr. Chen</p><p class="text-[11px] text-mist">professor · 连环追问</p></button>
+      </div>
+    </div>
+
+    <!-- 麦克风检查（真实 DeviceCheck：idle/requesting/ok/denied/unsupported 五态；此处画 ok 态：16 段实时电平条 + PASS 徽标 + 停止钮） -->
+    <div class="bg-white border border-line rounded-2xl shadow-card p-6">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <h2 class="font-semibold mb-1">麦克风检查</h2>
+          <p class="text-[13px] text-mist">开面前确认采集设备正常。</p>
+        </div>
+        <span class="text-[11px] font-mono uppercase tracking-widest bg-success/10 text-success rounded-md px-2 py-1">PASS</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="flex items-end gap-[3px] h-6 flex-1">
+          <span class="w-1.5 rounded-sm bg-success/70" style="height:35%"></span><span class="w-1.5 rounded-sm bg-success/70" style="height:55%"></span><span class="w-1.5 rounded-sm bg-success/70" style="height:80%"></span><span class="w-1.5 rounded-sm bg-success/70" style="height:100%"></span><span class="w-1.5 rounded-sm bg-success/70" style="height:70%"></span><span class="w-1.5 rounded-sm bg-success/70" style="height:50%"></span><span class="w-1.5 rounded-sm bg-success/70" style="height:85%"></span><span class="w-1.5 rounded-sm bg-success/70" style="height:60%"></span><span class="w-1.5 rounded-sm bg-line" style="height:20%"></span><span class="w-1.5 rounded-sm bg-line" style="height:15%"></span><span class="w-1.5 rounded-sm bg-line" style="height:25%"></span><span class="w-1.5 rounded-sm bg-line" style="height:15%"></span><span class="w-1.5 rounded-sm bg-line" style="height:10%"></span><span class="w-1.5 rounded-sm bg-line" style="height:20%"></span><span class="w-1.5 rounded-sm bg-line" style="height:10%"></span><span class="w-1.5 rounded-sm bg-line" style="height:10%"></span>
+        </div>
+        <button class="border border-line rounded-lg px-3.5 py-2 text-[13px] hover:border-brand-500/50 text-brand-600 shrink-0">停止</button>
+      </div>
+      <p class="text-[11px] text-mist mt-2.5">其余态：未开始=「测试麦克风」按钮；denied=红字权限提示；unsupported=设备不支持说明；FAIL 时徽标为红色 danger。</p>
+    </div>
+
+    <button class="w-full bg-brand-600 hover:bg-brand-700 text-white rounded-xl py-4 text-base font-medium shadow-card">开始面试 →</button>
+  </div>
+
+  <!-- 提交后过渡屏（三步指示器的真实位置） -->
+  <div class="mt-10">
+    <div class="h-px bg-line mb-8"></div>
+    <p class="text-xs font-mono uppercase tracking-widest text-mist mb-2">附 · 提交后过渡屏（三步指示器的真实位置）</p>
+    <div class="bg-white border border-line rounded-2xl shadow-card p-6 text-center">
+      <p class="text-sm text-mist mb-4">正在准备你的面试…（随后跳转 /session/[id]）</p>
+      <div class="flex items-center justify-center gap-2 text-[12.5px]">
+        <span class="flex items-center gap-1.5 text-success"><span class="w-4 h-4 rounded-full bg-success text-white grid place-items-center text-[9px]">✓</span>读取简历</span>
+        <span class="w-6 h-px bg-line"></span>
+        <span class="flex items-center gap-1.5 text-brand-700 font-medium"><span class="w-4 h-4 rounded-full bg-brand-600 text-white grid place-items-center text-[9px]"><span class="inline-block w-2 h-2 border-2 border-white border-t-transparent rounded-full animate-spin"></span></span>调研公司</span>
+        <span class="w-6 h-px bg-line"></span>
+        <span class="flex items-center gap-1.5 text-mist"><span class="w-4 h-4 rounded-full border border-line grid place-items-center text-[9px] text-mist">3</span>规划题目</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="max-w-6xl mx-auto px-6"><p class="text-xs tracking-[.35em] text-mist">页面 /interview/[id] — 语音面试间（左舞台右逐字稿；控制条=单胶囊三控件：PTT 点按单钮双态 + 静音 + 挂断二次确认）</p><div class="h-px bg-line mt-3"></div></div>
+
+<!-- ② interview -->
+<section class="max-w-6xl mx-auto px-6 py-12">
+  <header class="flex items-center justify-between mb-6">
+    <div class="flex items-baseline gap-3">
+      <p class="text-xs font-mono uppercase tracking-widest text-brand-600 self-center">DeepInterview · Live</p>
+      <span class="text-sm font-medium">Dana</span>
+      <span class="text-[11px] text-mist">← 页眉显示人设名，无岗位/公司信息（生产如此）</span>
+    </div>
+    <div class="flex items-center gap-2 border border-line rounded-full px-3 py-1.5 bg-white">
+      <span class="w-2 h-2 rounded-full bg-success animate-pulse"></span>
+      <span class="font-mono text-sm text-ink/80">23:41</span>
+    </div>
+  </header>
+
+  <div class="grid md:grid-cols-[1.2fr_1fr] gap-5">
+    <!-- 舞台 -->
+    <div class="rounded-2xl overflow-hidden border border-line bg-ink/95 relative aspect-[4/3]">
+      <div class="absolute inset-0 grid place-items-center" style="background:radial-gradient(60% 60% at 50% 40%,#2A2E45,#141622)">
+        <div class="text-center">
+          <div class="w-28 h-28 mx-auto rounded-full bg-brand-100/15 border border-white/15 grid place-items-center text-6xl mb-4">👩‍💼</div>
+          <p class="text-white/85 text-sm font-medium">Dana · 正在说话</p>
+          <!-- 真实形态：无舞台字幕条；底部为 7 段 BarVisualizer -->
+          <div class="flex items-end justify-center gap-1.5 mt-4 h-6">
+            <span class="w-1.5 bg-brand-500 rounded-full" style="height:40%;animation:pulse 1s infinite"></span><span class="w-1.5 bg-brand-500 rounded-full" style="height:90%;animation:pulse .8s infinite"></span><span class="w-1.5 bg-brand-500 rounded-full" style="height:60%;animation:pulse 1.2s infinite"></span><span class="w-1.5 bg-brand-500 rounded-full" style="height:100%;animation:pulse .9s infinite"></span><span class="w-1.5 bg-brand-500 rounded-full" style="height:50%;animation:pulse 1.1s infinite"></span><span class="w-1.5 bg-brand-500 rounded-full" style="height:80%;animation:pulse .7s infinite"></span><span class="w-1.5 bg-brand-500 rounded-full" style="height:35%;animation:pulse 1.3s infinite"></span>
+          </div>
+        </div>
+      </div>
+      <!-- 首句到达前的等待胶囊（真实元素；有语音后即消失，此处叠放示意） -->
+      <div class="absolute top-3 left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur border border-white/15 rounded-full px-3 py-1.5 text-[11px] text-white/75">⏳ 等待面试官开口…</div>
+    </div>
+
+    <!-- 逐字稿 -->
+    <div class="bg-white border border-line rounded-2xl shadow-card flex flex-col">
+      <div class="px-5 py-3.5 border-b border-line flex items-center justify-between"><h3 class="font-semibold text-sm">逐字稿</h3><span class="inline-flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-widest text-danger"><span class="w-1.5 h-1.5 rounded-full bg-danger animate-pulse"></span>Live</span></div>
+      <!-- 真实结构：仅 INTERVIEWER/YOU 角色标签，无 Q 编号、无时间戳 -->
+      <div class="p-5 space-y-4 overflow-y-auto text-[13.5px] leading-relaxed" style="max-height:360px">
+        <div><p class="text-[11px] text-mist mb-1">面试官</p><p class="bg-brand-50/70 border border-brand-100 rounded-lg px-3.5 py-2.5">讲一个你主导的线上事故，你的决策哪里可以做得更好？</p></div>
+        <div><p class="text-[11px] text-mist mb-1">你</p><p class="border border-line rounded-lg px-3.5 py-2.5 text-ink/85">去年支付网关的缓存击穿，P99 从 80ms 飙到 900ms。我第一时间做了单飞回源……现在复盘，预热策略应该在上线前就压测，而不是事后补。</p></div>
+        <div><p class="text-[11px] text-mist mb-1">面试官</p><p class="bg-brand-50/70 border border-brand-100 rounded-lg px-3.5 py-2.5">单飞的等待超时你设了多少？如果持锁的协程也挂了呢？</p></div>
+        <div><p class="text-[11px] text-mist mb-1">你</p><p class="border border-line rounded-lg px-3.5 py-2.5 text-ink/85">超时 200ms，持锁协程挂掉靠租约到期自动释放，下一请求重新抢飞……</p></div>
+        <div class="opacity-50"><p class="text-[11px] text-mist mb-1">面试官</p><p class="border border-dashed border-line rounded-lg px-3.5 py-2.5">「……那回填任务跑到一半失败了，重试的边界条件是怎么定义的？」</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 控制条：真实为单胶囊组内三控件 -->
+  <div class="mt-5 flex justify-center">
+    <div class="bg-white border border-line rounded-full shadow-card px-2.5 py-2 flex items-center gap-2">
+      <button class="border border-line rounded-full px-3 py-2.5 text-sm text-mist hover:text-ink" title="静音">🔇</button>
+      <button class="bg-brand-600 hover:bg-brand-700 text-white rounded-full px-6 py-2.5 text-sm font-medium">🎙 开始回答</button>
+      <button class="border border-danger/40 text-danger rounded-full px-4 py-2.5 text-sm hover:bg-danger/5">挂断</button>
+    </div>
+  </div>
+  <!-- 另两态样例 -->
+  <div class="mt-3 flex justify-center items-center gap-4">
+    <div class="bg-ink text-white rounded-full px-6 py-2.5 text-sm font-medium inline-flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-danger animate-pulse"></span>录制中 <span class="font-mono">37s</span> · 完成回答</div>
+    <p class="text-[11px] text-mist max-w-xs">PTT 点按式单钮双态：开始回答 ⇄ 录制中（红点+秒数+完成回答）；<b>90 秒自动交答</b>，非「按住说话」。</p>
+  </div>
+  <div class="mt-3 flex justify-center items-center gap-4">
+    <div class="border border-danger bg-danger/5 text-danger rounded-full px-4 py-2.5 text-sm font-medium inline-flex items-center gap-2">⏻ 再点一次以确认挂断</div>
+    <p class="text-[11px] text-mist max-w-xs">挂断二次确认：首点变「再点一次」，4 秒内无二次点击自动解除。</p>
+  </div>
+
+  <!-- 文字兜底（常驻区） -->
+  <div class="mt-6 border-t border-line pt-5">
+    <p class="text-[11px] text-mist mb-3">↓ 文字作答兜底（TextFallback）<b>常驻</b>：音频不可用时才能输入，否则框体置灰并提示用语音作答。</p>
+    <div class="flex gap-2">
+      <input disabled class="flex-1 border border-line rounded-lg px-3.5 py-2.5 text-sm bg-paper/60 text-mist placeholder:text-mist/60" placeholder="麦克风不可用时，在这里打字作答…">
+      <button disabled class="border border-line rounded-lg px-5 py-2.5 text-sm bg-paper/60 text-mist/60">发送</button>
+    </div>
+  </div>
+</section>
+
+<div class="max-w-6xl mx-auto px-6"><p class="text-xs tracking-[.35em] text-mist">页面 /interview/coach — 苏格拉底教练间（与面试间同壳，仅三处文案差异；绿色强调为本次拍板新增决策）</p><div class="h-px bg-line mt-3"></div></div>
+
+<!-- ③ coach -->
+<section class="max-w-6xl mx-auto px-6 py-12 pb-24">
+  <header class="flex items-center justify-between mb-6">
+    <span class="text-sm font-semibold text-success bg-success/10 rounded-full px-3 py-1">学习教练 · 苏格拉底模式</span>
+    <span class="font-mono text-sm text-mist">08:12</span>
+  </header>
+  <div class="grid md:grid-cols-[1.2fr_1fr] gap-5">
+    <div class="rounded-2xl overflow-hidden border border-line relative aspect-[4/3] grid place-items-center" style="background:radial-gradient(60% 60% at 50% 40%,#1E2A26,#111815)">
+      <div class="text-center">
+        <div class="w-28 h-28 mx-auto rounded-full bg-white/10 border border-white/15 grid place-items-center text-6xl mb-4">🧑‍🏫</div>
+        <p class="text-white/85 text-sm font-medium">教练 · 倾听中</p>
+      </div>
+    </div>
+    <div class="bg-white border border-line rounded-2xl shadow-card flex flex-col">
+      <div class="px-5 py-3.5 border-b border-line"><h3 class="font-semibold text-sm">教练对话 · 本轮基于你的报告弱项「容量估算」</h3></div>
+      <div class="p-5 space-y-4 text-[13.5px] leading-relaxed overflow-y-auto" style="max-height:320px">
+        <div><p class="text-[11px] text-mist mb-1">教练</p><p class="bg-success/5 border border-success/15 rounded-lg px-3.5 py-2.5">你上次的方案里 QPS 是拍的。拍的时候你在想什么？</p></div>
+        <div><p class="text-[11px] text-mist mb-1">你</p><p class="border border-line rounded-lg px-3.5 py-2.5 text-ink/85">按 DAU × 人均刷 200 条估的，但没算缓存命中率……</p></div>
+        <div><p class="text-[11px] text-mist mb-1">教练</p><p class="bg-success/5 border border-success/15 rounded-lg px-3.5 py-2.5">好，那命中率 90% 和 50%，你的哪一步结论会翻转？</p></div>
+      </div>
+    </div>
+  </div>
+  <div class="mt-5 flex justify-center">
+    <div class="bg-white border border-line rounded-full shadow-card px-2.5 py-2 flex items-center gap-2">
+      <button class="border border-line rounded-full px-3 py-2.5 text-sm text-mist hover:text-ink" title="静音">🔇</button>
+      <button class="bg-success/10 border border-success/40 text-success rounded-full px-6 py-2.5 text-sm font-medium">🎙 开始回答</button>
+      <button class="border border-line text-mist rounded-full px-4 py-2.5 text-sm">结束练习</button>
+    </div>
+  </div>
+  <p class="text-center text-[11.5px] text-mist mt-3 max-w-2xl mx-auto leading-relaxed">配色说明：教练间绿色强调为本次拍板的<b>新增设计决策</b>（生产当前与面试间同靛蓝，仅标题/说话人标签/结束按钮三处文案差异）；换肤实施时落地。虚构的「← 返回备考」链接已删（生产页眉无导航）。</p>
+
+  <div class="mt-10 border-t border-line pt-6">
+    <p class="text-[11px] text-mist leading-relaxed">六状态壳（同壳不逐一出图）：<b>Preview</b>=未配置/已结束占位（已结束附「查看报告」按钮）；<b>Connecting</b>=全屏 spinner；<b>ConnectionLost</b>=「重新加入」按钮；<b>麦故障横幅</b>=顶部黄条提示+引导回 setup；<b>agentNeverJoined</b>=告知重试与检查配置；<b>reconnecting</b>=顶部细条提示自动重连。文字兜底同样常驻。</p>
+  </div>
+</section>
+
+<div class="fixed bottom-5 right-5 bg-ink text-white text-xs rounded-full px-4 py-2 opacity-80">设计稿 ② · 待确认</div>
+</body>
+</html>

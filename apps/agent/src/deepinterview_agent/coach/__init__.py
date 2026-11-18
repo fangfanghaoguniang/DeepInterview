@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping
+from hashlib import sha256
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
@@ -77,6 +78,10 @@ def _status_for_level(level: str) -> MasteryState:
     return "learning" if level == "developing" else "shaky"
 
 
+def study_module_id(competency: str) -> str:
+    return "goal_" + sha256(competency.strip().encode()).hexdigest()[:16]
+
+
 def _clamp_min(value: int) -> int:
     """Keep a module's estimated minutes in a sane 5-90 range."""
     return max(5, min(90, int(value)))
@@ -118,9 +123,12 @@ async def run_coach_plan(
     # Plan from the STRUCTURED growth items so the report page and the coach
     # page share a single source. Old scorecards (or an LLM that omitted the
     # field) fall back to the score-banded weak_competencies.
-    items: list[tuple[str, str]] = [(gi.competency, gi.text) for gi in scorecard.growth_items]
+    grouped: dict[str, list[str]] = {}
+    for gi in scorecard.growth_items:
+        grouped.setdefault(gi.competency, []).extend([gi.text, *gi.actions])
+    items = [(comp, "\n".join(dict.fromkeys(texts))) for comp, texts in grouped.items()]
     if not items:
-        items = [(c, "") for c in scorecard.weak_competencies]
+        items = [(c, "") for c in dict.fromkeys(scorecard.weak_competencies)]
     if not items:
         return _empty_plan(
             "No weak areas from your last interview — nice work. Run another mock to stay sharp."
@@ -132,11 +140,9 @@ async def run_coach_plan(
     items.sort(key=lambda it: score_by_comp[it[0]].score if it[0] in score_by_comp else 99.0)
 
     modules: list[StudyModule] = []
-    for i, (comp, growth_text) in enumerate(items, start=1):
+    for comp, growth_text in items:
         cs = score_by_comp.get(comp)
-        evidence = (
-            cs.evidence if cs is not None else (growth_text or "(no specific evidence captured)")
-        )
+        evidence = "\n".join(filter(None, [growth_text, cs.evidence if cs else ""]))
         level = cs.level if cs is not None else "weak"
         derived_status: MasteryState = (
             _status_for_level(level) if cs is not None else "learning"
@@ -159,7 +165,7 @@ async def run_coach_plan(
             )
         modules.append(
             StudyModule(
-                id=f"m{i}",
+                id=study_module_id(comp),
                 title=draft.title,
                 competency=comp,
                 status=status,

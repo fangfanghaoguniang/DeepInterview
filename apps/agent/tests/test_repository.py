@@ -21,6 +21,7 @@ from typing import Any
 from deepinterview_agent.core.adapters.mock import build_mock
 from deepinterview_agent.core.persistence.repository import (
     MemoryRepository,
+    PostgresRepository,
     SupabaseRepository,
 )
 from deepinterview_agent.shared_models import (
@@ -422,3 +423,92 @@ def test_supabase_get_session_view_selects_migration_columns_and_maps_row() -> N
 
     # Unknown ids map to None (the API turns this into a 404, not a 500).
     assert _run(repo.get_session_view("sess_missing")) is None
+
+
+def test_memory_study_cas_is_atomic_and_merges_without_aliasing() -> None:
+    repo = MemoryRepository()
+    sid = _run(repo.create_session(_prep_request()))
+    state = {"version": "v", "view": {"targets": []}}
+
+    async def race():
+        return await asyncio.gather(*(repo.compare_and_set_study(
+            sid, 0, state, [{"id": f"d{i}"}], {f"c{i}": "shaky"},
+        ) for i in range(8)))
+
+    assert sum(_run(race())) == 1
+    assert _run(repo.compare_and_set_study(sid, 1, state,
+        [{"id": "d0", "answer": "新版"}, {"id": "d9"}], {"c9": "learning"}))
+    data = _run(repo.get_learning_data(sid))
+    assert data["study_revision"] == 2
+    assert data["practice_state"] == {"c0": "shaky", "c9": "learning"}
+    assert {d["id"] for d in data["drill_items"]} == {"d0", "d9"}
+    data["study_state"]["view"]["targets"].append("外部修改")
+    state["version"] = "不能影响持久值"
+    assert _run(repo.get_learning_data(sid))["study_state"] == {"version": "v", "view": {"targets": []}}
+
+
+def test_supabase_study_uses_rpc_and_preserves_conflict_response() -> None:
+    from types import SimpleNamespace
+
+    repo, fake = _supabase_repo()
+    sid = _run(repo.create_session(_prep_request()))
+    fake.rows[sid].update(study_state={}, study_revision=7, drill_items=[], practice_state={})
+    assert _run(repo.get_learning_data(sid))["study_revision"] == 7
+    calls = []
+
+    def rpc(name, payload):
+        calls.append((name, json.loads(json.dumps(payload))))
+        return SimpleNamespace(execute=lambda: SimpleNamespace(data=payload["p_revision"] == 7))
+
+    fake.rpc = rpc
+    assert _run(repo.compare_and_set_study(sid, 7, {"version": "v"}, [{"id": "d"}], {"能力": "shaky"}))
+    assert calls[-1] == ("study_compare_and_set", {
+        "p_session_id": sid, "p_revision": 7, "p_state": {"version": "v"},
+        "p_drills": [{"id": "d"}], "p_practice": {"能力": "shaky"},
+    })
+    assert not _run(repo.compare_and_set_study(sid, 6, {}))
+    assert calls[-1][1]["p_drills"] == [] and calls[-1][1]["p_practice"] == {}
+
+
+def test_postgres_decodes_jsonb_and_sends_atomic_cas_parameters() -> None:
+    from types import SimpleNamespace
+
+    calls = []
+    context = build_mock(InterviewContext)
+    score = build_mock(ScoreCard)
+
+    class Connection:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def fetchrow(self, sql, *args):
+            calls.append((sql, args))
+            if "study_compare_and_set" in sql:
+                return {"ok": args[1] == 4}
+            return {"id": "sess_pg", "status": "complete", "context": context.model_dump_json(),
+                    "scorecard": score.model_dump_json(), "progress": '["ready"]',
+                    "prep_warnings": '[]', "study_state": '{"version":"v"}',
+                    "study_revision": 4, "drill_items": '[]', "practice_state": '{}',
+                    "language_mode": '{"primary":"zh","mixed":false}'}
+
+        async def fetch(self, sql, *args):
+            return [await self.fetchrow(sql, *args)]
+
+    repo = PostgresRepository("未连接的测试地址")
+    repo._pool = SimpleNamespace(acquire=Connection)
+    assert _run(repo.load_context("sess_pg")) == context
+    assert _run(repo.get_session_view("sess_pg")).scorecard == score
+    assert _run(repo.get_learning_data("sess_pg"))["study_state"] == {"version": "v"}
+    assert _run(repo._fetch("test"))[0]["progress"] == ["ready"]
+    assert _run(repo.compare_and_set_study("sess_pg", 4, {"version": "v"},
+                                         [{"id": "d"}], {"能力": "mastered"}))
+    sql, args = calls[-1]
+    assert "study_compare_and_set" in sql
+    assert args[:2] == ("sess_pg", 4)
+    assert [json.loads(value) for value in args[2:]] == [
+        {"version": "v"}, [{"id": "d"}], {"能力": "mastered"},
+    ]
+    assert not _run(repo.compare_and_set_study("sess_pg", 3, {}))

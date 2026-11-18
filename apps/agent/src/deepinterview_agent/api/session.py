@@ -54,6 +54,15 @@ async def get_session(session_id: str) -> SessionView:
     return view
 
 
+@router.get("/api/sessions/latest", response_model=SessionView)
+async def get_latest_session() -> SessionView:
+    """Return the most recently completed interview session (for the landing page)."""
+    view = await build_deps().repo.get_latest_completed()
+    if view is None:
+        raise HTTPException(status_code=404, detail="No completed session yet")
+    return view
+
+
 @router.post(
     "/api/session/{session_id}/live-result",
     dependencies=[Depends(require_internal_secret)],

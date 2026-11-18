@@ -34,6 +34,7 @@ export type ModelAnswer = z.infer<typeof ModelAnswerSchema>;
 export const GrowthItemSchema = z.object({
   text: z.string(),
   competency: z.string(),
+  actions: z.array(z.string()).default([]),
 });
 export type GrowthItem = z.infer<typeof GrowthItemSchema>;
 

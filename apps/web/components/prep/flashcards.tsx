@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { RotateCcw, Check } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Eyebrow } from "@/components/ui/eyebrow";
@@ -36,14 +38,21 @@ const RATINGS: { rating: Rating; labelKey: string; variant: "out" | "ink" }[] =
  * clock is read on the client only (SSR-safe, no hydration mismatch).
  */
 export function Flashcards({
-  cards = SAMPLE_FLASHCARDS,
-  activeModule = null,
+  cards: suppliedCards,
+  activeModule = null, mode = "real", storageKey, returnAllHref, coachHref, interviewHref,
 }: {
   cards?: Flashcard[];
+  mode?: "real" | "preview";
+  storageKey?: string;
+  returnAllHref?: string;
+  coachHref?: string;
+  interviewHref?: string;
   /** Set from /prep?module=<id> — filters the deck to one study module. */
   activeModule?: ActiveModuleInfo | null;
 }) {
+  const cards = suppliedCards ?? (mode === "preview" ? SAMPLE_FLASHCARDS : []);
   const messages = useMessages();
+  const router = useRouter();
   const sectionRef = useRef<HTMLElement>(null);
   // "End filter" / "use full deck" — a local escape hatch over the URL filter.
   const [dismissed, setDismissed] = useState(false);
@@ -58,7 +67,8 @@ export function Flashcards({
   // filter and restart the walk from the first card of the new slice.
   useEffect(() => {
     setDismissed(false);
-    setIndex(0);
+    setSelectedId(null);
+    setBrowsing(false);
     setFlipped(false);
   }, [activeModule?.competency]);
   // Seed per-card SRS state once, on the client, off a single `now`.
@@ -68,7 +78,38 @@ export function Flashcards({
     for (const c of cards) seed[c.id] = newCard(now);
     return seed;
   });
-  const [index, setIndex] = useState(0);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const index = Math.max(0, visible.findIndex((card) => card.id === selectedId));
+  function setIndex(next: number) { setSelectedId(visible[next]?.id ?? null); }
+  const [browsing, setBrowsing] = useState(false);
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const [storageError, setStorageError] = useState(false);
+  useEffect(() => {
+    if (!storageKey) return;
+    try {
+      const raw = JSON.parse(localStorage.getItem(storageKey) || "{}");
+      const saved: Record<string, SrsState> = {};
+      if (raw && typeof raw === "object") for (const [id, value] of Object.entries(raw)) {
+        const s = value as SrsState;
+        if (s && [s.ease, s.interval, s.due, s.reps].every(Number.isFinite)
+          && s.ease >= 1.3 && s.interval >= 0 && s.due >= 0
+          && Number.isInteger(s.reps) && s.reps >= 0) saved[id] = s;
+      }
+      setStates(saved);
+    } catch { setStorageError(true); }
+    setLoadedKey(storageKey);
+  }, [storageKey]);
+  useEffect(() => {
+    if (!storageKey || loadedKey !== storageKey) return;
+    try { localStorage.setItem(storageKey, JSON.stringify(states)); }
+    catch { setStorageError(true); }
+  }, [states, storageKey, loadedKey]);
+  function clearFilter() {
+    if (returnAllHref) router.push(returnAllHref);
+    else { setDismissed(true); setIndex(0); }
+    setBrowsing(false);
+    setFlipped(false);
+  }
   const [flipped, setFlipped] = useState(false);
   const [reviewedThisSession, setReviewedThisSession] = useState(0);
 
@@ -83,13 +124,18 @@ export function Flashcards({
   );
 
   const current = visible[index];
-  const allDone = dueIds.length === 0;
+  useEffect(() => {
+    if (current) setSelectedId(current.id);
+    setFlipped(false);
+  }, [current?.id]);
+  const allDone = visible.length > 0 && dueIds.length === 0;
   // Filtered to a module that owns no cards (real coach plans can name
   // competencies the sample deck never covers).
   const emptyModule = visible.length === 0;
 
   function rate(rating: Rating) {
-    if (!current) return;
+    if (!current || !flipped || (storageKey && loadedKey !== storageKey)) return;
+    setBrowsing(false);
     const at = Date.now();
     const prev = states[current.id] ?? newCard(at);
     setStates((s) => ({ ...s, [current.id]: schedule(prev, rating, at) }));
@@ -138,10 +184,11 @@ export function Flashcards({
     if (activeModule) {
       sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
-  }, [activeModule]);
+  }, [activeModule?.competency]);
 
   return (
-    <section ref={sectionRef} aria-labelledby="flashcards-heading">
+    <section id="cards" ref={sectionRef} aria-labelledby="flashcards-heading" className="scroll-mt-6 min-w-0">
+      {storageError && <p role="status" className="mb-3 text-sm text-warn">浏览器未能保存复习进度，本页仍可继续练习。</p>}
       <header className="mb-4 flex items-end justify-between">
         <div>
           <Eyebrow>{t(messages, "prep.cardsEyebrow")}</Eyebrow>
@@ -179,7 +226,7 @@ export function Flashcards({
           <Button
             variant="out"
             size="sm"
-            onClick={() => setDismissed(true)}
+            onClick={clearFilter}
           >
             {t(messages, "prep.endStudyFilter")}
           </Button>
@@ -201,36 +248,39 @@ export function Flashcards({
         />
       </div>
 
-      {activeModule && !dismissed && emptyModule ? (
+      {emptyModule ? (
         // Module selected but the deck has no cards for it — honest fallback
         // instead of an empty flip area.
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
             <h3 className="font-serif text-xl text-ink">
-              {t(messages, "prep.noModuleCards")}
+              暂无可用卡片，请查看上方材料准备状态
             </h3>
             <Button
               variant="out"
               size="sm"
-              onClick={() => setDismissed(true)}
+              onClick={clearFilter}
               className="mt-1"
             >
               {t(messages, "prep.useAllCards")}
             </Button>
           </CardContent>
         </Card>
-      ) : allDone || !current ? (
+      ) : (allDone && !browsing) || !current ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
             <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#e8f3ec]">
               <Check className="h-6 w-6 text-ok" aria-hidden />
             </span>
             <h3 className="font-serif text-xl text-ink">
-              {t(messages, "prep.cardsAllDone")}
+              本轮卡片复习完成
             </h3>
             <p className="max-w-sm text-[14px] leading-relaxed text-muted">
-              {t(messages, "prep.cardsAllDoneBody")}
+              自评用于安排下次复习，不代表能力已经掌握。可以继续教练练习或开始新的完整面试。
             </p>
+            <Button variant="out" size="sm" onClick={() => { setBrowsing(true); setIndex(0); }}>回看卡片（保留进度）</Button>
+            {coachHref && <Link href={coachHref} prefetch={false} className="text-sm text-ok underline">让教练带我练全部目标</Link>}
+            {interviewHref && <Link href={interviewHref} className="text-sm text-accent underline">再面试，重点练此项</Link>}
             <Button
               variant="out"
               size="sm"
@@ -244,6 +294,10 @@ export function Flashcards({
         </Card>
       ) : (
         <>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm text-muted">
+            <span>卡片位置 {index + 1} / {visible.length} · {current.source === "drill" ? "针对性练习题" : mode === "preview" ? "示例卡片" : "面试复盘题"}</span>
+            {browsing && <Button variant="out" size="sm" onClick={() => setBrowsing(false)}>返回完成页</Button>}
+          </div>
           {/* Flip card. CSS 3D transform — no animation library. */}
           <div
             className="[perspective:1600px]"
@@ -261,13 +315,13 @@ export function Flashcards({
             }}
           >
             <div
-              className="relative min-h-[220px] w-full transition-transform duration-500 [transform-style:preserve-3d]"
+              className="relative grid min-h-[220px] w-full transition-transform duration-500 [transform-style:preserve-3d]"
               style={{
                 transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
               }}
             >
               {/* Front */}
-              <div className="absolute inset-0 [backface-visibility:hidden]">
+              <div className="col-start-1 row-start-1 min-w-0 [backface-visibility:hidden]">
                 <Card className="flex h-full min-h-[220px] flex-col">
                   <CardContent className="flex flex-1 flex-col items-center justify-center gap-3 py-8 text-center">
                     <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-faint">
@@ -284,7 +338,7 @@ export function Flashcards({
               </div>
               {/* Back */}
               <div
-                className="absolute inset-0 [backface-visibility:hidden]"
+                className="col-start-1 row-start-1 min-w-0 [backface-visibility:hidden]"
                 style={{ transform: "rotateY(180deg)" }}
               >
                 <Card className="flex h-full min-h-[220px] flex-col bg-accent-soft">
@@ -301,6 +355,11 @@ export function Flashcards({
             </div>
           </div>
 
+          <div className="mt-4 flex items-center justify-between gap-2">
+            <Button variant="out" size="sm" disabled={index === 0} onClick={() => { setIndex(index - 1); setFlipped(false); }}>上一张</Button>
+            <span className="text-xs text-muted">浏览不计入复习进度</span>
+            <Button variant="out" size="sm" disabled={index >= visible.length - 1} onClick={() => { setIndex(index + 1); setFlipped(false); }}>下一张</Button>
+          </div>
           {/* Rating row — only meaningful once the answer is shown. */}
           <div
             className={cn(
@@ -316,7 +375,7 @@ export function Flashcards({
                   variant={variant}
                   size="sm"
                   onClick={() => rate(rating)}
-                  disabled={!flipped}
+                  disabled={!flipped || Boolean(storageKey && loadedKey !== storageKey)}
                   className="flex-col gap-0.5 py-2"
                 >
                   <span>{t(messages, labelKey)}</span>

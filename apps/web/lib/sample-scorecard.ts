@@ -75,14 +75,17 @@ export const SAMPLE_SCORECARD: ScoreCard = {
     {
       competency: "Behavioral / STAR",
       text: "STAR structure is inconsistent — situation and task are often dropped",
+      actions: ["Drill the STAR frame: open every behavioral answer with one sentence of Situation + Task."],
     },
     {
       competency: "Leadership",
       text: "Leadership examples rarely reach beyond the immediate team",
+      actions: ["Prepare two stories that show influence across teams or orgs, not just within your squad."],
     },
     {
       competency: "System Design",
       text: "Capacity and failure-mode reasoning is thin in system-design answers",
+      actions: ["Practice back-of-the-envelope capacity math out loud for system-design rounds."],
     },
   ],
   model_answers: [

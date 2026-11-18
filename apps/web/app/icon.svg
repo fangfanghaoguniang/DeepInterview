@@ -8,5 +8,5 @@
   <path d="M38 40 H56 A30 30 0 0 1 56 100 H38 Z"
         fill="none" stroke="#1A1A1A" stroke-width="10" stroke-linejoin="round" />
   <path d="M101 62 V100" stroke="#1A1A1A" stroke-width="10" stroke-linecap="round" />
-  <circle cx="101" cy="45" r="6.5" fill="#4338CA" />
+  <circle cx="101" cy="45" r="6.5" fill="#4F5DD5" />
 </svg>

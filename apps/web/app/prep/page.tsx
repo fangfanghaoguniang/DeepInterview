@@ -5,20 +5,15 @@ import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { LanguageToggle } from "@/components/language-toggle";
 import { t } from "@/lib/i18n";
-import { getServerLocale, getServerMessages } from "@/lib/i18n/server";
-import type { StudyModule } from "@deepinterview/shared";
-import { serverEnv } from "@/lib/env";
-import { loadSessionView, loadCoachTranscript } from "@/lib/session-read";
-import { buildStudyCards, type CardDrillInput } from "@/lib/prep-filter";
+import { getServerMessages } from "@/lib/i18n/server";
+import { StudyWorkspace } from "@/components/prep/study-workspace";
 import { SAMPLE_SCORECARD } from "@/lib/sample-scorecard";
 import { SAMPLE_STUDY_PLAN } from "@/lib/sample-mastery";
-import { requestCoachPlan, requestCoachDrill } from "@/lib/api";
 import { StudyPlan } from "@/components/prep/study-plan";
 import { GroundedChat } from "@/components/prep/grounded-chat";
 import { Flashcards } from "@/components/prep/flashcards";
 import { MasteryGraphView } from "@/components/prep/mastery-graph";
 import { SocraticCta } from "@/components/prep/socratic-cta";
-import { CoachSessionReplay } from "@/components/prep/coach-session";
 
 // Reads server-only config (`isSupabaseConfigured()`) and the per-request user;
 // must not be statically prerendered.
@@ -39,7 +34,7 @@ export const dynamic = "force-dynamic";
 export default async function PrepPage({
   searchParams,
 }: {
-  searchParams: Promise<{ session?: string | string[]; module?: string | string[] }>;
+  searchParams: Promise<{ session?: string | string[]; module?: string | string[]; preview?: string; run?: string; feedback_error?: string }>;
 }) {
   // No auth gate — OSS runs without sign-in.
   const m = await getServerMessages();
@@ -56,92 +51,24 @@ export default async function PrepPage({
       ? params.module
       : null;
 
-  // Weak areas come from the linked interview's real scorecard when present;
-  // otherwise fall back to the clearly-labeled sample.
-  const view = sessionId ? await loadSessionView(sessionId) : null;
-  const real = view?.scorecard ?? null;
-  const scorecard = real ?? SAMPLE_SCORECARD;
-  const isSample = real === null;
-  const weakAreas = scorecard.weak_competencies;
-
-  // Build the real study plan from the scorecard via the coach agent. Falls back
-  // to the StudyPlan component's sample modules if the agent is unreachable.
-  // Module text follows the INTERVIEW language when a real session is linked;
-  // with the sample scorecard there is no interview language, so the UI locale
-  // stands in — a Chinese-interface visitor gets a Chinese plan.
-  const planLanguage = view?.context
-    ? view.context.plan.language_mode.primary
-    : await getServerLocale();
-  let studyModules: StudyModule[] | undefined;
-  try {
-    // Pass the linked session so the backend merges its persisted practice
-    // mastery into the module statuses. Only for a real session view — the
-    // sample path has no session to read and stays a pure scorecard plan.
-    const plan = await requestCoachPlan(
-      scorecard,
-      planLanguage,
-      view ? sessionId ?? undefined : undefined,
-    );
-    // Success: adopt the real modules EVEN WHEN EMPTY. A no-gaps interview is a
-    // genuine result, not a failure — collapsing both into a falsy check used to
-    // silently drop English SAMPLE_STUDY_PLAN over a real (empty) plan. Only a
-    // thrown call (agent down) leaves this undefined, which StudyPlan renders
-    // as the clearly-labeled preview.
-    studyModules = plan.modules;
-  } catch {
-    // Agent down / offline dev — StudyPlan renders its default sample modules.
+  if (sessionId || params.preview !== "1") {
+    return <main className="mx-auto max-w-[1100px] px-6 py-12">
+      <header className="flex items-center justify-between"><Link href="/"><Eyebrow>DeepInterview</Eyebrow></Link><LanguageToggle /></header>
+      <h1 className="mt-6 font-serif text-3xl text-ink sm:text-4xl">{t(m, "prep.pageTitle")}</h1>
+      {sessionId ? <StudyWorkspace key={`${sessionId}:${params.run ?? "latest"}`} sessionId={sessionId} moduleId={moduleId}
+              runId={typeof params.run === "string" ? params.run : null} feedbackError={params.feedback_error === "1"} />
+        : <section className="mt-6 rounded-card border border-line p-6">
+          <p>尚未关联面试。请从已生成的报告进入学习，或先完成一场模拟面试。</p>
+          <div className="mt-4 flex flex-wrap gap-3"><Link href="/setup" className={buttonClasses()}>开始面试</Link>
+            <Link href="/prep?preview=1" className={buttonClasses({ variant: "out" })}>查看示例</Link></div>
+        </section>}
+    </main>;
   }
-
-  const moduleList = studyModules ?? SAMPLE_STUDY_PLAN;
-  const activeStudyModule = moduleId
-    ? moduleList.find((mo) => mo.id === moduleId) ?? null
-    : null;
-
-  // Real review deck: the interview's own weak-area questions paired with the
-  // model answers the post pipeline wrote into the scorecard. Empty (no
-  // session, unscored, or no model answers yet) → Flashcards keeps its sample
-  // deck, consistent with the "preview data" badge above.
-  const cardLanguage = view?.context
-    ? view.context.plan.language_mode.primary
-    : planLanguage;
-  const baseCards =
-    view?.context && real
-      ? buildStudyCards(
-          view.context.plan.questions,
-          real.model_answers,
-          real.weak_competencies,
-          cardLanguage,
-        )
-      : [];
-
-  // Targeted drills: when the learner opens a study module whose competency the
-  // mock never scored, there are no real interview cards for it. Ask the coach
-  // to generate a few — cached on the session, so re-visits don't regenerate.
-  // Scoped to the ACTIVE module to bound LLM cost; browsing the full deck adds
-  // nothing. Fails closed (no drills) if the agent is unreachable.
-  let drills: CardDrillInput[] = [];
-  if (view && sessionId && real && activeStudyModule) {
-    const comp = activeStudyModule.competency;
-    const coveredByInterview = baseCards.some((c) => c.competency === comp);
-    if (!coveredByInterview) {
-      try {
-        drills = await requestCoachDrill(sessionId, comp, cardLanguage);
-      } catch {
-        // Agent down — the deck simply omits drills for this module.
-      }
-    }
-  }
-
-  const realCards =
-    view?.context && real
-      ? buildStudyCards(
-          view.context.plan.questions,
-          real.model_answers,
-          real.weak_competencies,
-          cardLanguage,
-          drills,
-        )
-      : [];
+  // 示例只在用户明确进入预览时展示，不发起模型请求。
+  const isSample = true;
+  const weakAreas = SAMPLE_SCORECARD.weak_competencies;
+  const studyModules = SAMPLE_STUDY_PLAN;
+  const activeStudyModule = studyModules.find((mo) => mo.id === moduleId) ?? null;
 
   return (
     <main className="mx-auto max-w-[1100px] px-6 py-12">
@@ -157,7 +84,7 @@ export default async function PrepPage({
       </header>
 
       <div className="mt-6">
-        <h1 className="font-serif text-4xl text-ink">{t(m, "prep.pageTitle")}</h1>
+        <h1 className="font-serif text-3xl text-ink sm:text-4xl">{t(m, "prep.pageTitle")}</h1>
         <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-muted">
           {isSample
             ? t(m, "prep.pageIntroSample")
@@ -201,7 +128,7 @@ export default async function PrepPage({
       {/* Flashcards + mastery graph */}
       <section className="mt-12 grid gap-10 lg:grid-cols-2">
         <Flashcards
-          cards={realCards.length > 0 ? realCards : undefined}
+          mode="preview"
           activeModule={
             activeStudyModule
               ? { title: activeStudyModule.title, competency: activeStudyModule.competency }
@@ -213,15 +140,9 @@ export default async function PrepPage({
 
       {/* Voice Socratic mode */}
       <section className="mt-12">
-        <SocraticCta sessionId={view ? sessionId : null} />
+        <SocraticCta sessionId={null} />
       </section>
 
-      {/* Last spoken coaching session, when this one was practiced */}
-      {view && sessionId ? (
-        <CoachSessionReplay
-          turns={(await loadCoachTranscript(sessionId)) ?? []}
-        />
-      ) : null}
     </main>
   );
 }

@@ -651,6 +651,13 @@
                   },
                   "competency": {
                     "type": "string"
+                  },
+                  "actions": {
+                    "default": [],
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
                   }
                 },
                 "required": [
@@ -674,6 +681,88 @@
             "next_steps",
             "language_report",
             "summary"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "focus_source": {
+      "default": null,
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "session_id": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            },
+            "module_id": {
+              "type": "string"
+            },
+            "competency": {
+              "type": "string"
+            },
+            "growth": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "actions": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "baseline": {
+              "default": null,
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "competency": {
+                      "type": "string"
+                    },
+                    "score": {
+                      "type": "number"
+                    },
+                    "evidence": {
+                      "type": "string"
+                    },
+                    "level": {
+                      "type": "string",
+                      "enum": [
+                        "weak",
+                        "developing",
+                        "solid",
+                        "strong"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "competency",
+                    "score",
+                    "evidence",
+                    "level"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "session_id",
+            "version",
+            "module_id",
+            "competency",
+            "growth",
+            "actions"
           ]
         },
         {

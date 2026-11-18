@@ -6,7 +6,7 @@ import { AvatarGallery } from "@/components/avatar/avatar-gallery";
 export const metadata: Metadata = {
   title: "Avatar system · DeepInterview",
   description:
-    "Preview the DeepInterview avatar personas and their idle ⇄ speaking states.",
+    "Preview the DeepInterview avatar personas and their idle / listening / thinking / speaking states.",
 };
 
 /**
@@ -26,12 +26,13 @@ export default function AvatarsPage() {
       <div className="mt-10 flex flex-col gap-3">
         <Eyebrow>Avatar system</Eyebrow>
         <h1 className="serif text-4xl text-ink sm:text-5xl">
-          Three personas, two loops, zero cost per minute.
+          Four personas, four states, zero cost per minute.
         </h1>
         <p className="max-w-[60ch] text-base leading-relaxed text-muted">
-          Each interviewer is a pair of pre-rendered Veo&nbsp;3.1 loops — idle
-          and speaking — stacked and crossfaded by the live agent state. No
-          real-time avatar SaaS, so runtime cost is just CDN bytes. The stages
+          Each interviewer is a set of pre-rendered Veo&nbsp;3.1 loops — idle,
+          listening, thinking and speaking — stacked and crossfaded by the
+          live agent state. No real-time avatar SaaS, so runtime cost is just
+          CDN bytes. The stages
           below render their fallback look until the rendered loops are wired
           in; toggle the state to see the crossfade and the speaking pulse.
         </p>

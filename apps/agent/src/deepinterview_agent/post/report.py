@@ -142,10 +142,14 @@ async def generate_report(
         overall_score=overall,
         competency_scores=comp_scores,
         strengths=narrative.strengths,
-        weaknesses=narrative.weaknesses,
+        weaknesses=([g.text for g in narrative.growth_items]
+                    if narrative.growth_items else narrative.weaknesses),
         weak_competencies=weak,
         model_answers=model_answers,
-        next_steps=narrative.next_steps,
+        next_steps=list(dict.fromkeys([
+            *[action for g in narrative.growth_items for action in g.actions],
+            *narrative.next_steps,
+        ])),
         language_report=lang_report,
         summary=narrative.summary,
         growth_items=narrative.growth_items,

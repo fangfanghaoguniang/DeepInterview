@@ -29,6 +29,7 @@ from ..shared_models import (
     QuestionPlan,
 )
 from .cv_extract import extract_cv_text
+from .focus import generate_focus_plan
 from .prompts import (
     company_research_prompts,
     cv_analysis_prompts,
@@ -295,6 +296,12 @@ async def question_planner(state: PrepState, deps: Deps) -> PrepState:
             "the gap analysis):\n"
             f"{hint}"
         )
+    focus_source = state.get("focus_source")
+    if focus_source:
+        plan = await generate_focus_plan(system, user, focus_source,
+                                         state.get("avoid_questions", []), req, deps)
+        await _mark(state, deps, "question_planner")
+        return {"plan": plan}
     try:
         plan = await deps.llm.complete_json(
             system=system, user=user, schema=QuestionPlan

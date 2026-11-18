@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "input": {
+      "type": "object",
+      "properties": {
+        "cv_url": {
+          "type": "string"
+        },
+        "jd_text": {
+          "type": "string"
+        },
+        "company": {
+          "type": "string"
+        },
+        "language_mode": {
+          "type": "object",
+          "properties": {
+            "primary": {
+              "type": "string",
+              "enum": [
+                "en",
+                "vi",
+                "es",
+                "zh",
+                "hi",
+                "id",
+                "pt",
+                "fr",
+                "de",
+                "ja"
+              ]
+            },
+            "mixed": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "primary",
+            "mixed"
+          ]
+        },
+        "user_id": {
+          "type": "string"
+        },
+        "source_session_id": {
+          "type": "string"
+        },
+        "focus_competency": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cv_url",
+        "jd_text",
+        "company",
+        "language_mode"
+      ]
+    },
+    "focus": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "module_id": {
+          "type": "string"
+        },
+        "competency": {
+          "type": "string"
+        },
+        "growth": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "baseline": {
+          "default": null,
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "competency": {
+                  "type": "string"
+                },
+                "score": {
+                  "type": "number"
+                },
+                "evidence": {
+                  "type": "string"
+                },
+                "level": {
+                  "type": "string",
+                  "enum": [
+                    "weak",
+                    "developing",
+                    "solid",
+                    "strong"
+                  ]
+                }
+              },
+              "required": [
+                "competency",
+                "score",
+                "evidence",
+                "level"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "session_id",
+        "version",
+        "module_id",
+        "competency",
+        "growth",
+        "actions"
+      ]
+    }
+  },
+  "required": [
+    "input",
+    "focus"
+  ]
+}

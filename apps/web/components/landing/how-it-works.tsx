@@ -1,5 +1,4 @@
 import { Container } from "@/components/ui/container";
-import { Eyebrow } from "@/components/ui/eyebrow";
 import { Reveal } from "@/components/ui/reveal";
 import { t } from "@/lib/i18n";
 import { getServerMessages } from "@/lib/i18n/server";
@@ -16,29 +15,26 @@ export async function HowItWorks() {
   return (
     <section id="how" className="scroll-mt-24 py-[84px]">
       <Container>
-        <Reveal className="mb-12 max-w-[680px]">
-          <Eyebrow>{t(m, "landing.how.eyebrow")}</Eyebrow>
-          <h2 className="serif my-3.5 text-[38px]">
+        {/* 风格 A 定稿：上顶直接接 H2，不再挂 Eyebrow 与 sub行；与上一版不同，
+            3 列也不再用卡片描边，回归到“纸上一块区域”的编辑排版节奏。 */}
+        <Reveal className="mb-10">
+          <h2 className="serif text-[34px] text-ink min-[920px]:text-[38px]">
             {t(m, "landing.how.title")}
           </h2>
-          <p className="text-[17px] text-ink-soft">
-            {t(m, "landing.how.sub")}
-          </p>
         </Reveal>
         <Reveal>
-          <div className="grid overflow-hidden rounded-2xl border border-line bg-panel md:grid-cols-3">
+          <div className="grid gap-8 md:grid-cols-3">
             {STEPS.map((step) => (
-              <div
-                key={step.num}
-                className="border-b border-line px-7 py-[30px] last:border-b-0 md:border-b-0 md:border-r md:last:border-r-0"
-              >
-                <div className="mb-[18px] font-mono text-[12px] text-accent">
+              <div key={step.num}>
+                <div className="mb-3 font-mono text-[11.5px] uppercase tracking-[0.08em] text-accent-strong">
                   {t(m, step.num)}
                 </div>
-                <h3 className="mb-[9px] text-[19px] font-semibold">
+                <h3 className="mb-2 text-[17px] font-semibold text-ink">
                   {t(m, step.title)}
                 </h3>
-                <p className="text-[14.5px] text-muted">{t(m, step.body)}</p>
+                <p className="text-[14.5px] leading-relaxed text-muted">
+                  {t(m, step.body)}
+                </p>
               </div>
             ))}
           </div>

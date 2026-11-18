@@ -204,6 +204,7 @@ class GrowthItem(BaseModel):
     model_config = ConfigDict(extra="forbid")
     text: str
     competency: str
+    actions: list[str] = Field(default_factory=list)
 
 
 class ScoreCard(BaseModel):
@@ -274,6 +275,57 @@ class DrillItem(BaseModel):
     competency: str
     text: LocalizedText
     answer: str
+    source_version: str | None = None
+    language: Language | None = None
+
+
+class StudyCard(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: str
+    competency: str
+    front: str
+    back: str
+    source: Literal["interview", "drill"]
+
+
+class StudyTarget(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    module: StudyModule
+    growth: list[str]
+    actions: list[str]
+    material_status: Literal["pending", "ready", "failed"]
+    error: str | None = None
+    cards: list[StudyCard] = Field(default_factory=list)
+
+
+class CoachFeedback(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    module_id: str
+    mastery: MasteryState | None = None
+    note: str
+
+
+class CoachRun(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: str
+    version: str
+    entry_module: str | None = None
+    status: Literal["running", "pending", "ready", "failed"]
+    started_at: float
+    feedback: list[CoachFeedback] = Field(default_factory=list)
+
+
+class StudyView(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    session_id: str
+    version: str
+    language: Language
+    role: str | None = None
+    company: str | None = None
+    status: Literal["idle", "preparing", "ready", "failed", "empty"]
+    error: str | None = None
+    targets: list[StudyTarget]
+    coach_run: CoachRun | None = None
 
 
 class CoachChatRequest(BaseModel):
@@ -293,6 +345,17 @@ class CoachReply(BaseModel):
 # --- interview context -------------------------------------------------------
 
 
+class FocusSource(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    session_id: str
+    version: str
+    module_id: str
+    competency: str
+    growth: list[str]
+    actions: list[str]
+    baseline: CompetencyScore | None = None
+
+
 class InterviewContext(BaseModel):
     model_config = ConfigDict(extra="forbid")
     session_id: str
@@ -304,6 +367,7 @@ class InterviewContext(BaseModel):
     cursor: int = 0
     answers: list[AnswerRecord] = Field(default_factory=list)
     scorecard: ScoreCard | None = None
+    focus_source: FocusSource | None = None
 
 
 # --- room --------------------------------------------------------------------
@@ -341,6 +405,14 @@ class PrepRequest(BaseModel):
     # still validates; when present it is stamped on the `sessions` row so the
     # report's RLS read (auth.uid() = user_id) can see the row. Mirrors api.ts.
     user_id: str | None = None
+    source_session_id: str | None = None
+    focus_competency: str | None = None
+
+
+class PrepSource(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    input: PrepRequest
+    focus: FocusSource
 
 
 class PrepResponse(BaseModel):
@@ -407,6 +479,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "ScoreCard": ScoreCard,
     "StudyModule": StudyModule,
     "StudyPlan": StudyPlan,
+    "StudyView": StudyView,
     "CoachChatRequest": CoachChatRequest,
     "CoachReply": CoachReply,
     "InterviewContext": InterviewContext,
@@ -414,6 +487,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "TokenResponse": TokenResponse,
     "RoomMetadata": RoomMetadata,
     "PrepRequest": PrepRequest,
+    "PrepSource": PrepSource,
     "PrepResponse": PrepResponse,
     "ScoreRequest": ScoreRequest,
     "ScoreResponse": ScoreResponse,

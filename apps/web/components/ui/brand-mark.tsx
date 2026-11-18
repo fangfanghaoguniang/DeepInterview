@@ -45,7 +45,7 @@ export function BrandMark({
         strokeWidth="10"
         strokeLinecap="round"
       />
-      <circle cx="101" cy="45" r="6.5" fill="#4338CA" />
+      <circle cx="101" cy="45" r="6.5" fill="#4F5DD5" />
     </svg>
   );
 }

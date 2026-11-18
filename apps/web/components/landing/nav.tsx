@@ -2,9 +2,7 @@ import Link from "next/link";
 import { features } from "@deepinterview/ee";
 import { Container } from "@/components/ui/container";
 import { buttonClasses } from "@/components/ui/button";
-import { BrandMark } from "@/components/ui/brand-mark";
 import { MobileMenu } from "@/components/landing/mobile-menu";
-import { GITHUB_URL } from "@/lib/site";
 import { t } from "@/lib/i18n";
 import { getServerMessages } from "@/lib/i18n/server";
 
@@ -12,7 +10,6 @@ import { getServerMessages } from "@/lib/i18n/server";
 export const NAV_LINKS = [
   { href: "#how", key: "landing.navHow" },
   { href: "#product", key: "landing.navProduct" },
-  { href: "#oss", key: "landing.navOss" },
   { href: "#faq", key: "landing.navFaq" },
 ] as const;
 
@@ -29,7 +26,14 @@ export async function Nav() {
     <nav className="sticky top-0 z-50 border-b border-line bg-paper/80 backdrop-blur-md">
       <Container className="flex h-[66px] items-center justify-between">
         <a href="#top" className="flex items-center gap-[9px]">
-          <BrandMark size={22} />
+          {/* 风格 A 定稿：方块 DI 白字（brand-600 蓝）——与圆圈 Di 描边版本并存，
+              后者仍用于 icon.svg / opengraph 等小尺寸场景。 */}
+          <span
+            aria-hidden
+            className="grid h-8 w-8 place-items-center rounded-lg bg-accent-strong text-[13px] font-bold text-white"
+          >
+            DI
+          </span>
           <span className="text-[17px] font-semibold tracking-[-0.01em]">
             DeepInterview
           </span>
@@ -44,14 +48,6 @@ export async function Nav() {
         </div>
 
         <div className="flex items-center gap-3.5">
-          <a
-            href={GITHUB_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="hidden text-[14.5px] text-ink-soft hover:text-ink min-[861px]:inline"
-          >
-            {t(m, "landing.navGithub")}
-          </a>
           {features.auth ? (
             <Link
               href="/login"
@@ -60,7 +56,7 @@ export async function Nav() {
               {t(m, "landing.navSignIn")}
             </Link>
           ) : null}
-          <Link href="/setup" className={buttonClasses()}>
+          <Link href="/setup" className={buttonClasses({ variant: "brand" })}>
             {t(m, "landing.navStart")}
           </Link>
           <MobileMenu links={signedInLinks} />

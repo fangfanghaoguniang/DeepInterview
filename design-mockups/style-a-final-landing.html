@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>风格 A 定稿 · 精简元素版首页 — DeepInterview 样张</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: { extend: {
+    colors: {
+      paper: '#FAFAF7', ink: '#1C1B1A', mist: '#6B6B66',
+      brand: { 50:'#EEF1FF', 100:'#DDE3FF', 500:'#4F5DD5', 600:'#3D4AB8', 700:'#313B93' },
+      line: '#E6E4DF', success:'#1F7A5C', warn:'#B4690E', danger:'#B3372F'
+    },
+    fontFamily: { sans: ['"PingFang SC"','"Hiragino Sans GB"','"Microsoft YaHei"','system-ui','sans-serif'] },
+    boxShadow: { card:'0 1px 2px rgba(28,27,26,.05), 0 8px 24px rgba(28,27,26,.06)' }
+  } }
+}
+</script>
+</head>
+<body class="bg-paper text-ink antialiased">
+
+<!-- 导航：无公告条、无 GitHub 入口 -->
+<header class="sticky top-0 z-50 bg-paper/90 backdrop-blur border-b border-line">
+  <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <div class="w-8 h-8 rounded-lg bg-brand-600 text-white grid place-items-center font-bold text-sm">DI</div>
+      <span class="font-semibold tracking-tight">DeepInterview</span>
+    </div>
+    <nav class="hidden md:flex items-center gap-7 text-sm text-mist">
+      <a class="hover:text-ink" href="#how">流程</a>
+      <a class="hover:text-ink" href="#features">功能</a>
+      <a class="hover:text-ink" href="#faq">常见问题</a>
+      <span class="w-px h-4 bg-line"></span>
+      <button class="text-ink/80 hover:text-ink text-sm">登录</button>
+      <button class="bg-brand-600 hover:bg-brand-700 text-white text-sm rounded-lg px-4 py-2">免费注册</button>
+    </nav>
+  </div>
+</header>
+
+<!-- Hero：次按钮改为示例报告，勾选条去掉许可话术 -->
+<section class="relative overflow-hidden">
+  <div class="absolute inset-0 pointer-events-none" style="background:radial-gradient(60% 50% at 70% 0%,#EEF1FF 0%,transparent 70%)"></div>
+  <div class="max-w-6xl mx-auto px-6 pt-20 pb-16 relative">
+    <div class="grid md:grid-cols-12 gap-10 items-center">
+      <div class="md:col-span-7">
+        <p class="text-sm text-brand-600 font-medium mb-4">AI 模拟面试 · 语音实时对答 · 完整评分报告</p>
+        <h1 class="text-5xl leading-[1.15] font-bold tracking-tight">
+          像真实终面一样<br>练习你要去的那一场
+        </h1>
+        <p class="mt-6 text-lg text-mist max-w-xl leading-relaxed">
+          选定岗位与级别，AI 面试官连续追问四十分钟；结束后拿到含七维能力评分、逐题复盘与范文的完整报告，并把短板变成下一份练习计划。
+        </p>
+        <div class="mt-9 flex items-center gap-4">
+          <button class="bg-brand-600 hover:bg-brand-700 text-white rounded-lg px-6 py-3 text-base font-medium shadow-card">开始第一场模拟面试</button>
+          <button class="border border-line bg-white rounded-lg px-6 py-3 text-base text-ink/80 hover:border-brand-500 hover:text-brand-600">看一份示例报告 →</button>
+        </div>
+        <div class="mt-10 flex items-center gap-8 text-sm text-mist">
+          <div><span class="text-ink text-xl font-bold mr-1.5">32</span>预置岗位技能包</div>
+          <div class="w-px h-5 bg-line"></div>
+          <div><span class="text-ink text-xl font-bold mr-1.5">7</span>维能力评分体系</div>
+          <div class="w-px h-5 bg-line"></div>
+          <div><span class="text-ink text-xl font-bold mr-1.5">中英</span>双语界面与面试语言</div>
+        </div>
+      </div>
+      <div class="md:col-span-5">
+        <div class="bg-white rounded-2xl border border-line shadow-card p-6">
+          <div class="flex items-center justify-between mb-5">
+            <span class="text-sm font-medium">上一场 · 后端高级工程师</span>
+            <span class="text-xs bg-success/10 text-success rounded-full px-2.5 py-1">已完成</span>
+          </div>
+          <div class="flex items-end gap-3 mb-6">
+            <span class="text-5xl font-bold tracking-tight">72</span>
+            <span class="text-mist text-sm pb-1.5">/100 综合分 · 距离目标岗位线还差 8 分</span>
+          </div>
+          <div class="space-y-3.5">
+            <div><div class="flex justify-between text-xs text-mist mb-1"><span>系统设计</span><span class="text-ink font-medium">58</span></div><div class="h-1.5 bg-brand-50 rounded-full"><div class="h-1.5 bg-danger rounded-full" style="width:58%"></div></div></div>
+            <div><div class="flex justify-between text-xs text-mist mb-1"><span>项目深度</span><span class="text-ink font-medium">71</span></div><div class="h-1.5 bg-brand-50 rounded-full"><div class="h-1.5 bg-warn rounded-full" style="width:71%"></div></div></div>
+            <div><div class="flex justify-between text-xs text-mist mb-1"><span>编码与工程实践</span><span class="text-ink font-medium">80</span></div><div class="h-1.5 bg-brand-50 rounded-full"><div class="h-1.5 bg-success rounded-full" style="width:80%"></div></div></div>
+            <div><div class="flex justify-between text-xs text-mist mb-1"><span>沟通表达</span><span class="text-ink font-medium">84</span></div><div class="h-1.5 bg-brand-50 rounded-full"><div class="h-1.5 bg-success rounded-full" style="width:84%"></div></div></div>
+          </div>
+          <button class="mt-6 w-full border border-brand-500/40 text-brand-600 rounded-lg py-2.5 text-sm hover:bg-brand-50">生成补课计划 →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 三步流程（保留，原 HowItWorks） -->
+<section id="how" class="border-y border-line bg-white/60">
+  <div class="max-w-6xl mx-auto px-6 py-14">
+    <h2 class="text-2xl font-bold tracking-tight mb-8">从配置到复盘，三步闭环</h2>
+    <div class="grid md:grid-cols-3 gap-8">
+      <div><p class="text-xs font-mono text-brand-500 mb-2">STEP 01</p><h3 class="font-semibold mb-1.5">设定岗位与难度</h3><p class="text-sm text-mist leading-relaxed">32 个技能包覆盖前后端到产品岗，选级别、挑侧重、定语言，三十秒开局。</p></div>
+      <div><p class="text-xs font-mono text-brand-500 mb-2">STEP 02</p><h3 class="font-semibold mb-1.5">真实压力面对答</h3><p class="text-sm text-mist leading-relaxed">语音或文字连续面试，面试官顺着你的回答追问，全程逐字稿记录。</p></div>
+      <div><p class="text-xs font-mono text-brand-500 mb-2">STEP 03</p><h3 class="font-semibold mb-1.5">报告变训练计划</h3><p class="text-sm text-mist leading-relaxed">七维评分定位短板，逐题复盘给出范文，短板自动生成补课闪卡与下一场重点。</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 功能特性（保留 4 条，开源叙事改数据主权叙事） -->
+<section id="features" class="max-w-6xl mx-auto px-6 py-16">
+  <h2 class="text-2xl font-bold tracking-tight mb-9">为什么它比刷题库有用</h2>
+  <div class="grid md:grid-cols-4 gap-8">
+    <div><div class="w-10 h-10 rounded-lg bg-brand-50 text-brand-600 grid place-items-center mb-3">🎙</div><h3 class="font-semibold mb-1.5">连续追问而非念题</h3><p class="text-sm text-mist leading-relaxed">面试官基于你的回答决定下一个问题，模拟真实压力面的 branching。</p></div>
+    <div><div class="w-10 h-10 rounded-lg bg-brand-50 text-brand-600 grid place-items-center mb-3">📊</div><h3 class="font-semibold mb-1.5">七维评分 + 逐题复盘</h3><p class="text-sm text-mist leading-relaxed">每个维度都有依据与范文，不留"玄学打分"。</p></div>
+    <div><div class="w-10 h-10 rounded-lg bg-brand-50 text-brand-600 grid place-items-center mb-3">🗂</div><h3 class="font-semibold mb-1.5">短板变计划</h3><p class="text-sm text-mist leading-relaxed">报告里的弱项自动进入备考页：学习模块、闪卡与针对性补题。</p></div>
+    <div><div class="w-10 h-10 rounded-lg bg-brand-50 text-brand-600 grid place-items-center mb-3">🔒</div><h3 class="font-semibold mb-1.5">数据只属于你</h3><p class="text-sm text-mist leading-relaxed">逐字稿、报告与练习记录只存在你自己的部署里，自带模型 Key 即可运行完整链路。</p></div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq" class="border-t border-line">
+  <div class="max-w-3xl mx-auto px-6 py-16">
+    <h2 class="text-2xl font-bold tracking-tight mb-8">常见问题</h2>
+    <details class="border-b border-line py-4 group" open>
+      <summary class="flex cursor-pointer list-none items-center justify-between font-medium text-[15.5px]">面试是完全模拟真实的吗？<span class="text-mist group-open:rotate-45 transition">＋</span></summary>
+      <p class="mt-3 text-sm text-mist leading-relaxed">问题来自岗位技能包的真实考察维度，面试官会根据你的回答深度决定追问方向与压力强度，节奏与真实技术面一致。</p>
+    </details>
+    <details class="border-b border-line py-4 group">
+      <summary class="flex cursor-pointer list-none items-center justify-between font-medium text-[15.5px]">语音面试对环境有什么要求？<span class="text-mist group-open:rotate-45 transition">＋</span></summary>
+      <p class="mt-3 text-sm text-mist leading-relaxed">建议戴耳机，在安静环境作答；答完一段后点「回答完毕」再交给面试官，避免转写截断。</p>
+    </details>
+    <details class="border-b border-line py-4 group">
+      <summary class="flex cursor-pointer list-none items-center justify-between font-medium text-[15.5px]">分数可信吗？和真实面试差距大吗？<span class="text-mist group-open:rotate-45 transition">＋</span></summary>
+      <p class="mt-3 text-sm text-mist leading-relaxed">评分按七维能力逐项给依据，不追求复刻某家公司的口径，而是稳定暴露你的短板项——报告与真实面试评价的相关性来自复盘质量，不是分数本身。</p>
+    </details>
+  </div>
+</section>
+
+<!-- CTA 带：无 GitHub 按钮 -->
+<section class="pb-20">
+  <div class="max-w-4xl mx-auto px-6">
+    <div class="rounded-2xl border border-line bg-white shadow-card p-12 text-center">
+      <h2 class="text-3xl font-bold tracking-tight mb-3">下一场面试，值得先在这里走过一遍</h2>
+      <p class="text-mist mb-8">注册后三十秒即可开局，第一场不需要任何配置。</p>
+      <button class="bg-brand-600 hover:bg-brand-700 text-white rounded-lg px-8 py-3.5 text-base font-medium">免费注册，开始练习</button>
+    </div>
+  </div>
+</section>
+
+<!-- 页脚：产品/帮助/关于三列，GitHub 仅关于列一行静默致谢 -->
+<footer class="border-t border-line pt-12 pb-8">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="grid md:grid-cols-[2fr_1fr_1fr_1fr] gap-8 mb-10">
+      <div>
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-7 h-7 rounded-lg bg-brand-600 text-white grid place-items-center font-bold text-xs">DI</div>
+          <span class="font-semibold">DeepInterview</span>
+        </div>
+        <p class="text-sm text-mist max-w-[260px] leading-relaxed">把每一次真实面试，都变成有准备的第二次。</p>
+      </div>
+      <div>
+        <h4 class="text-xs font-mono uppercase tracking-widest text-mist mb-3.5">产品</h4>
+        <ul class="space-y-2.5 text-sm text-mist"><li><a href="#how" class="hover:text-ink">面试流程</a></li><li><a href="#features" class="hover:text-ink">功能</a></li><li><a href="#faq" class="hover:text-ink">常见问题</a></li></ul>
+      </div>
+      <div>
+        <h4 class="text-xs font-mono uppercase tracking-widest text-mist mb-3.5">开始使用</h4>
+        <ul class="space-y-2.5 text-sm text-mist"><li><a href="/signup" class="hover:text-ink">注册</a></li><li><a href="/login" class="hover:text-ink">登录</a></li><li><a href="/setup" class="hover:text-ink">配置面试</a></li></ul>
+      </div>
+      <div>
+        <h4 class="text-xs font-mono uppercase tracking-widest text-mist mb-3.5">关于</h4>
+        <ul class="space-y-2.5 text-sm text-mist"><li><a href="#" class="hover:text-ink">隐私与数据</a></li><li class="text-faint text-[13px] leading-relaxed">基于开源项目 <a href="https://github.com/ngoanpv/DeepInterview" target="_blank" rel="noreferrer" class="underline decoration-line underline-offset-2 hover:text-ink">DeepInterview</a>（Apache-2.0）构建</li></ul>
+      </div>
+    </div>
+    <div class="border-t border-line pt-5 flex flex-wrap justify-between gap-3 text-[13px] text-faint">
+      <span>© 2026 DeepInterview</span>
+      <span>本地部署 · 数据自持</span>
+    </div>
+  </div>
+</footer>
+
+<div class="fixed bottom-5 right-5 bg-ink text-white text-xs rounded-full px-4 py-2 opacity-80">定稿样张 · 精简元素版 · 待落地</div>
+</body>
+</html>

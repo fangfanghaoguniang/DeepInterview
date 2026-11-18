@@ -5,8 +5,15 @@ import asyncio
 from fastapi.testclient import TestClient
 
 from deepinterview_agent.app import create_app
+from deepinterview_agent.core.adapters.mock import build_mock
 from deepinterview_agent.core.deps import build_deps
-from deepinterview_agent.shared_models import LanguageMode, PrepRequest
+from deepinterview_agent.shared_models import (
+    GrowthItem,
+    InterviewContext,
+    LanguageMode,
+    PrepRequest,
+    ScoreCard,
+)
 
 
 def _client() -> TestClient:
@@ -70,6 +77,15 @@ def test_coach_drill_endpoint_generates_then_caches() -> None:
     SAME stored set (idempotent, no regeneration); unknown session 404s."""
     sid = _seed_bare_session()
     c = _client()
+    assert c.post("/api/coach/drill", json={"session_id": sid, "competency": "Concurrency"}).status_code == 409
+    ctx = build_mock(InterviewContext)
+    ctx.session_id = sid
+    ctx.plan.language_mode = LanguageMode(primary="en", mixed=False)
+    score = ScoreCard.model_validate(_scorecard_body(["Concurrency"]))
+    score.growth_items = [GrowthItem(competency="Concurrency", text="Concurrency")]
+    asyncio.run(build_deps().repo.save_context(sid, ctx))
+    asyncio.run(build_deps().repo.save_scorecard(sid, score))
+    assert c.post("/api/coach/study/prepare", json={"session_id": sid}).status_code == 200
     r1 = c.post(
         "/api/coach/drill",
         json={"session_id": sid, "competency": "Concurrency", "language": "en"},
@@ -141,9 +157,13 @@ def test_coach_plan_without_session_has_no_override() -> None:
 
 
 def test_coach_chat_endpoint() -> None:
+    sid = _seed_bare_session()
+    assert _client().post("/api/coach/chat", json={
+        "session_id": "sess_missing", "query": "unknown session", "lang": "en",
+    }).status_code == 404
     resp = _client().post(
         "/api/coach/chat",
-        json={"session_id": "sess_x", "query": "How do I structure a STAR answer?", "lang": "en"},
+        json={"session_id": sid, "query": "How do I structure a STAR answer?", "lang": "en"},
     )
     assert resp.status_code == 200
     reply = resp.json()

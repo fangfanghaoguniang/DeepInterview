@@ -7,11 +7,13 @@ import {
   LANGUAGES,
   type Language,
   type LanguageMode,
+  type PrepSource,
 } from "@deepinterview/shared";
 import { startSession } from "@/app/setup/actions";
 import { PERSONAS, DEFAULT_PERSONA_ID } from "@/lib/personas";
-import { useMessages } from "@/lib/i18n/client";
+import { useMessages, useLocale } from "@/lib/i18n/client";
 import { t } from "@/lib/i18n";
+import type { Locale } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 import {
   Card,
@@ -49,41 +51,89 @@ const MAX_CV_BYTES = 10 * 1024 * 1024;
 // One-click sample inputs for fast testing / demos. Each is a matched CV + JD +
 // company so the prep pipeline gets a coherent pair. Pure UX sugar — clicking a
 // sample just fills the form fields; nothing is submitted.
-const SAMPLES = [
-  {
-    id: "backend",
-    label: "Backend Engineer · Stripe",
-    company: "Stripe",
-    cv: "Jordan Rivera — Senior Backend Engineer. 7 years building high-throughput payment and API platforms. Led a ledger service at 5k req/s; cut p99 latency 40% with async batching; owned idempotency and reconciliation. Skills: Python, Go, PostgreSQL, Kafka, gRPC, Kubernetes, distributed systems.",
-    jd: "Senior Backend Engineer to build payment APIs at scale. Own services in Python/Go, design event-driven systems with Kafka, and ensure reliability, idempotency, and low p99 latency on PostgreSQL. Strong distributed-systems background required.",
-  },
-  {
-    id: "frontend",
-    label: "Frontend Engineer · Vercel",
-    company: "Vercel",
-    cv: "Sam Chen — Senior Frontend Engineer. 6 years shipping performant React/Next.js apps. Built a design system used across 30+ surfaces; improved LCP 35% with streaming SSR and image optimization. Skills: TypeScript, React, Next.js, Tailwind, accessibility, Core Web Vitals.",
-    jd: "Senior Frontend Engineer to build fast, delightful web experiences with Next.js and React. Own component architecture, Core Web Vitals, accessibility, and design-system work. Deep TypeScript and modern rendering (SSR/streaming) experience expected.",
-  },
-  {
-    id: "ml",
-    label: "ML Engineer · OpenAI",
-    company: "OpenAI",
-    cv: "Priya Nair — Machine Learning Engineer. 5 years in production ML: built feature pipelines and model serving for ranking at scale; owned offline/online evaluation and safe rollback. Skills: Python, PyTorch, Ray, feature stores, evaluation, MLOps, monitoring.",
-    jd: "Machine Learning Engineer to build and ship production ML systems: data pipelines, training, evaluation, and low-latency serving. You will own offline/online metrics, monitoring, and safe rollouts. Strong Python + PyTorch and MLOps experience required.",
-  },
-] as const;
+//
+// 上一版只有英文样本，中文用户点一下就会往表单里灌入大段英文，与界面叙事不符；
+// 改为 locale-aware，中英各一套内容对齐的同岗位背景。
+type Sample = {
+  id: string;
+  label: string;
+  company: string;
+  cv: string;
+  jd: string;
+};
 
-export function SetupForm({ r2Configured }: { r2Configured: boolean }) {
+const SAMPLES: Record<Locale, readonly Sample[]> = {
+  en: [
+    {
+      id: "ai-pm",
+      label: "AI Product Manager · Anthropic",
+      company: "Anthropic",
+      cv: "Maya Torres — Senior AI Product Manager. 6 years shipping LLM-powered products: led an enterprise copilot from 0 to 200k MAU; defined evaluation rubrics and red-team protocols with research; owned prompt/context strategy, model selection tradeoffs (cost / latency / quality), and cross-functional rollout with design, engineering and GTM. Skills: product strategy, prompt engineering, eval design, A/B testing, SQL, Figma, Jira, stakeholder management.",
+      jd: "Senior AI Product Manager to own the roadmap for our assistant products. You will translate model capabilities into user value, define evaluation criteria with research, drive prompt and context design, and ship features end-to-end with engineering and design. Strong bias for action, deep familiarity with LLM behavior (grounding, refusal, latency/cost tradeoffs), and excellent written communication required.",
+    },
+    {
+      id: "frontend",
+      label: "Frontend Engineer · Vercel",
+      company: "Vercel",
+      cv: "Sam Chen — Senior Frontend Engineer. 6 years shipping performant React/Next.js apps. Built a design system used across 30+ surfaces; improved LCP 35% with streaming SSR and image optimization. Skills: TypeScript, React, Next.js, Tailwind, accessibility, Core Web Vitals.",
+      jd: "Senior Frontend Engineer to build fast, delightful web experiences with Next.js and React. Own component architecture, Core Web Vitals, accessibility, and design-system work. Deep TypeScript and modern rendering (SSR/streaming) experience expected.",
+    },
+    {
+      id: "ai-eng",
+      label: "AI Engineer · LangChain",
+      company: "LangChain",
+      cv: "Ethan Park — Senior AI Engineer. 5 years building LLM-powered agents and RAG systems: shipped a multi-tool research agent handling 100k+ queries/day; owned prompt/context engineering, function-calling schemas, vector retrieval (pgvector + hybrid rerank), eval harnesses (LLM-as-judge + human review), and cost/latency tuning. Skills: Python, TypeScript, LangGraph, OpenAI/Anthropic APIs, RAG, tool use, structured output, observability (LangSmith, W&B).",
+      jd: "Senior AI Engineer to build agentic products end-to-end. You will design prompt and context strategies, wire tool/function calling across services, ship RAG pipelines with retrieval quality you can measure, and own eval, observability, and cost/latency budgets. Strong Python, fluency with modern LLM APIs (OpenAI, Anthropic, open-weight), and hands-on experience with agent frameworks (LangGraph, LlamaIndex, or your own) required.",
+    },
+  ],
+  zh: [
+    {
+      id: "ai-pm",
+      label: "AI 产品经理 · Anthropic",
+      company: "Anthropic",
+      cv: "林悦 — 高级 AI 产品经理。6 年 LLM 产品经验：主导企业级 Copilot 从 0 到 20 万 MAU 上线；与研究团队共同制定评估基准与红队协议；负责 Prompt、上下文策略与模型选型（成本/延迟/质量三角权衡），与设计、工程、GTM 跨职能推进落地。技能：产品策略、Prompt 工程、评估体系设计、A/B 实验、SQL、Figma、Jira、跨部门协作。",
+      jd: "招聘高级 AI 产品经理，负责助手类产品路线图。你需要把模型能力翻译成用户价值，与研究团队共同定义评估标准，主导 Prompt 与上下文设计，并和工程、设计端到端交付功能。要求强行动力、对 LLM 行为（接地、拒答、延迟与成本权衡）有深入理解、优秀的书面表达。",
+    },
+    {
+      id: "frontend",
+      label: "前端工程师 · Vercel",
+      company: "Vercel",
+      cv: "陈曦 — 高级前端工程师。6 年高性能 React/Next.js 应用交付经验。搭建被 30+ 业务界面复用的设计系统；通过流式 SSR 与图片优化将 LCP 提升 35%。技能：TypeScript、React、Next.js、Tailwind、可访问性、Core Web Vitals。",
+      jd: "招聘高级前端工程师，用 Next.js 与 React 打造快速、愉悦的 Web 体验。负责组件架构、Core Web Vitals、可访问性与设计系统建设。要求精通 TypeScript 与现代渲染范式（SSR/流式渲染）。",
+    },
+    {
+      id: "ai-eng",
+      label: "AI 应用工程师 · LangChain",
+      company: "LangChain",
+      cv: "周涛 — 高级 AI 应用工程师。5 年 LLM Agent 与 RAG 系统落地经验：主导多工具研究助手上线，日均处理 10 万+ 查询；负责 Prompt/上下文工程、函数调用 schema 设计、向量检索（pgvector + 混合 rerank）、评估体系（LLM-as-judge + 人工复核）与成本/延迟调优。技能：Python、TypeScript、LangGraph、OpenAI/Anthropic API、RAG、工具调用、结构化输出、可观测性（LangSmith、W&B）。",
+      jd: "招聘高级 AI 应用工程师，端到端构建 Agent 产品。你需要设计 Prompt 与上下文策略、跨服务串联工具/函数调用、交付可度量检索质量的 RAG 管道，并负责评估、可观测性与成本/延迟预算。要求扎实的 Python，熟悉现代 LLM API（OpenAI、Anthropic、开源权重），并有 Agent 框架（LangGraph、LlamaIndex 或自研）实战经验。",
+    },
+  ],
+};
+
+export function SetupForm({ r2Configured, source = null, sourceError = null }: {
+  r2Configured: boolean;
+  source?: PrepSource | null;
+  sourceError?: string | null;
+}) {
   const router = useRouter();
   const messages = useMessages();
+  const locale = useLocale();
+  const samples = SAMPLES[locale] ?? SAMPLES.zh;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [file, setFile] = useState<File | null>(null);
-  const [cvText, setCvText] = useState("");
-  const [jdText, setJdText] = useState("");
-  const [company, setCompany] = useState("");
-  const [primary, setPrimary] = useState<Language>("en");
-  const [mixed, setMixed] = useState(false);
+  const originalCv = source?.input.cv_url ?? "";
+  const cvIsReference = /^(https?:|data:)/i.test(originalCv);
+  const [reuseCv, setReuseCv] = useState(cvIsReference && Boolean(originalCv));
+  const [focusEnabled, setFocusEnabled] = useState(Boolean(source));
+  const [sourceDismissed, setSourceDismissed] = useState(false);
+  const [cvText, setCvText] = useState(cvIsReference ? "" : originalCv);
+  const [jdText, setJdText] = useState(source?.input.jd_text ?? "");
+  const [company, setCompany] = useState(source?.input.company ?? "");
+  // 换肤定稿（2026-11 拍板）：面试语言默认中文；用户仍可手动切 English。
+  const [primary, setPrimary] = useState<Language>(source?.input.language_mode.primary ?? "zh");
+  const [mixed, setMixed] = useState(source?.input.language_mode.mixed ?? false);
   const [personaId, setPersonaId] = useState(DEFAULT_PERSONA_ID);
 
   const [dragging, setDragging] = useState(false);
@@ -102,26 +152,37 @@ export function SetupForm({ r2Configured }: { r2Configured: boolean }) {
   // Company is optional.
   const cvLen = cvText.trim().length;
   const jdLen = jdText.trim().length;
-  const cvError = !file
+  const cvError = reuseCv && !file && !cvText.trim() ? null : !file
     ? cvLen === 0
       ? t(messages, "setup.needCv")
       : cvLen < MIN_CV_CHARS
-        ? `Add a bit more — your CV text looks too short (at least ${MIN_CV_CHARS} characters).`
+        ? t(messages, "setup.cvTooShort").replace(
+            "{min}",
+            String(MIN_CV_CHARS),
+          )
         : null
     : file.size > MAX_CV_BYTES
-      ? `That file is too large (max ${Math.floor(MAX_CV_BYTES / (1024 * 1024))} MB). Upload a smaller CV or paste the text.`
+      ? t(messages, "setup.fileTooLarge").replace(
+          "{max}",
+          String(Math.floor(MAX_CV_BYTES / (1024 * 1024))),
+        )
       : null;
   const jdError =
     jdLen === 0
       ? t(messages, "setup.needJd")
       : jdLen < MIN_JD_CHARS
-        ? `Paste the full posting — this looks too short (at least ${MIN_JD_CHARS} characters).`
+        ? t(messages, "setup.jdTooShort").replace(
+            "{min}",
+            String(MIN_JD_CHARS),
+          )
         : null;
-  const canSubmit = !cvError && !jdError && !submitting;
+  const blockedSource = Boolean(sourceError) && !sourceDismissed;
+  const canSubmit = !cvError && !jdError && !submitting && !blockedSource;
 
   // Fill the form with a matched sample (testing / demo). Clears any chosen file
   // so the pasted sample CV text is what gets submitted.
-  function loadSample(s: (typeof SAMPLES)[number]) {
+  function loadSample(s: Sample) {
+    setReuseCv(false);
     setFile(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
     setCvText(s.cv);
@@ -189,7 +250,7 @@ export function SetupForm({ r2Configured }: { r2Configured: boolean }) {
 
     // Client-side validation. CV can be a file OR pasted text; JD required +
     // min length; company is optional. Surface inline field errors and bail.
-    if (cvError || jdError) {
+    if (cvError || jdError || blockedSource) {
       setCvTouched(true);
       setJdTouched(true);
       return;
@@ -205,15 +266,15 @@ export function SetupForm({ r2Configured }: { r2Configured: boolean }) {
       let cv_url: string;
       if (file && r2Configured) {
         cv_url = await uploadToR2(file);
-      } else if (cvText.trim()) {
-        cv_url = cvText.trim();
       } else if (file) {
         // File chosen but no storage — send the RAW bytes as a base64 data URL
         // so the agent can parse the real document (NOT file.text(), which
         // turns a PDF/DOCX into binary garbage).
         cv_url = await fileToDataUrl(file);
+      } else if (cvText.trim()) {
+        cv_url = cvText.trim();
       } else {
-        cv_url = "";
+        cv_url = reuseCv ? originalCv : "";
       }
 
       setActiveStep(1);
@@ -223,6 +284,10 @@ export function SetupForm({ r2Configured }: { r2Configured: boolean }) {
         jd_text: jdText.trim(),
         company: company.trim(),
         language_mode,
+        ...(focusEnabled && source ? {
+          source_session_id: source.focus.session_id,
+          focus_competency: source.focus.competency,
+        } : {}),
       });
 
       if (!result.ok) {
@@ -271,7 +336,7 @@ export function SetupForm({ r2Configured }: { r2Configured: boolean }) {
   if (submitting) {
     const researching = t(messages, "setup.researching").replace(
       "{company}",
-      company.trim() || "the company",
+      company.trim() || t(messages, "setup.companyLabel"),
     );
     return (
       <Card className="mt-8">
@@ -324,17 +389,43 @@ export function SetupForm({ r2Configured }: { r2Configured: boolean }) {
         <p className="mt-2 text-ink-soft">{t(messages, "setup.subtitle")}</p>
       </div>
 
+      {sourceError && !sourceDismissed && (
+        <section className="rounded-xl border border-line bg-paper p-5" role="alert">
+          <p>无法沿用原面试：{sourceError}。未填入示例资料。</p>
+          <div className="mt-3 flex flex-wrap gap-3">
+            <Button type="button" variant="out" onClick={() => router.refresh()}>重新读取</Button>
+            <Button type="button" variant="ghost" onClick={() => setSourceDismissed(true)}>
+              改为普通面试，手动填写
+            </Button>
+          </div>
+        </section>
+      )}
+      {source && (
+        <section className="rounded-xl border border-line bg-accent-soft p-5">
+          <h2 className="font-serif text-xl">{focusEnabled ? `本次面试重点：${source.focus.competency}` : "已取消重点，改为普通面试"}</h2>
+          <p className="mt-2 text-sm text-muted">{focusEnabled ? "仍是一场完整面试，提高此项考查比例，同时考查其他岗位能力。" : "已填写的简历、岗位和语言设置保持不变。"}</p>
+          {focusEnabled && <ul className="mt-2 space-y-1 text-sm">{source.focus.growth.map((text, i) => <li key={i}>{text}</li>)}</ul>}
+          <p className="mt-2 text-sm">来源：上一场面试的成长建议。请检查沿用资料，失效的简历链接需重新上传。</p>
+          {(!originalCv || !source.input.jd_text) && <p className="mt-2 text-sm" role="alert">部分原资料缺失，请补充简历或岗位要求后开始。</p>}
+          <button type="button" className="mt-3 text-sm text-accent underline" onClick={() => setFocusEnabled(!focusEnabled)}>
+            {focusEnabled ? "取消重点，改为普通面试" : "恢复本次重点"}
+          </button>
+        </section>
+      )}
+
       {/* Quick demo: one-click sample CV + JD + company for fast testing */}
       <Card className="border-dashed">
         <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-[13px] font-medium text-ink">Quick demo</p>
+            <p className="text-[13px] font-medium text-ink">
+              {t(messages, "setup.quickDemoTitle")}
+            </p>
             <p className="text-[12px] text-muted">
-              Load a matched sample CV + job description to try it fast.
+              {t(messages, "setup.quickDemoHint")}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {SAMPLES.map((s) => (
+            {samples.map((s) => (
               <button
                 key={s.id}
                 type="button"
@@ -355,6 +446,10 @@ export function SetupForm({ r2Configured }: { r2Configured: boolean }) {
           <CardDescription>{t(messages, "setup.cvHint")}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4 pb-6">
+          {reuseCv && !file && !cvText.trim() && <div className="rounded-lg bg-paper p-3 text-sm">
+            已沿用上次上传的简历；上传新文件或粘贴文字可替换。
+            <button type="button" className="ml-2 text-accent underline" onClick={() => setReuseCv(false)}>不再沿用</button>
+          </div>}
           <div
             role="button"
             tabIndex={0}
@@ -381,12 +476,13 @@ export function SetupForm({ r2Configured }: { r2Configured: boolean }) {
             )}
           >
             {file ? (
-              <span className="flex items-center gap-2 text-[14px] text-ink">
-                <FileText className="h-4 w-4 text-accent" aria-hidden />
-                {file.name}
+              <span className="flex min-w-0 max-w-full items-center gap-2 text-[14px] text-ink">
+                <FileText className="h-4 w-4 shrink-0 text-accent" aria-hidden />
+                {/* 移动端长文件名截断，不允许撑破卡片 */}
+                <span className="truncate">{file.name}</span>
                 <button
                   type="button"
-                  aria-label="Remove file"
+                  aria-label={t(messages, "setup.removeFileAria")}
                   onClick={(e) => {
                     e.stopPropagation();
                     setFile(null);
@@ -467,7 +563,7 @@ export function SetupForm({ r2Configured }: { r2Configured: boolean }) {
           <Input
             value={company}
             onChange={(e) => setCompany(e.target.value)}
-            placeholder="Stripe (optional)"
+            placeholder={t(messages, "setup.companyPlaceholder")}
             aria-label={t(messages, "setup.companyLabel")}
           />
         </CardContent>
@@ -480,7 +576,7 @@ export function SetupForm({ r2Configured }: { r2Configured: boolean }) {
         </CardHeader>
         <CardContent className="flex flex-col gap-4 pb-6">
           <div className="flex flex-wrap gap-2">
-            {OFFERED.map((lang) => (
+            {Array.from(new Set([...OFFERED, primary])).map((lang) => (
               <button
                 key={lang}
                 type="button"
@@ -566,7 +662,7 @@ export function SetupForm({ r2Configured }: { r2Configured: boolean }) {
         disabled={!canSubmit}
         aria-disabled={!canSubmit}
       >
-        {t(messages, "setup.start")}
+        {focusEnabled ? "开始完整面试" : t(messages, "setup.start")}
       </Button>
     </form>
   );

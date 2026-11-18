@@ -89,13 +89,16 @@ export async function createInterviewToken({
  * never collide with the interview room (which IS the bare session id) — the
  * coach for a live interview runs in its own room, its own agent.
  */
-export function coachRoomName(sessionId: string): string {
-  return `coach_${sessionId}`;
+export function coachRoomName(sessionId: string, runId?: string): string {
+  return `coach_${sessionId}${runId ? `_${runId}` : ""}`;
 }
 
 export interface CreateCoachTokenArgs {
   /** The INTERVIEW session the coach briefs itself from (capability handle). */
   sessionId: string;
+  runId?: string;
+  version?: string;
+  entryModule?: string | null;
   identity: string;
   name?: string;
 }
@@ -110,7 +113,7 @@ export interface CreateCoachTokenArgs {
  * resolves its InterviewContext from that, not from the room name.
  */
 export async function createCoachToken({
-  sessionId,
+  sessionId, runId, version, entryModule,
   identity,
   name,
 }: CreateCoachTokenArgs): Promise<InterviewToken> {
@@ -120,7 +123,7 @@ export async function createCoachToken({
     );
   }
 
-  const room = coachRoomName(sessionId);
+  const room = coachRoomName(sessionId, runId);
   const at = new AccessToken(
     serverEnv.livekitApiKey,
     serverEnv.livekitApiSecret,
@@ -139,7 +142,9 @@ export async function createCoachToken({
     agents: [
       new RoomAgentDispatch({
         agentName: serverEnv.livekitCoachAgentName,
-        metadata: JSON.stringify({ session_id: sessionId }),
+        metadata: JSON.stringify({ session_id: sessionId,
+          ...(runId ? { run_id: runId, version, entry_module: entryModule ?? null } : {}),
+        }),
       }),
     ],
   });

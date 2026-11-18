@@ -1,6 +1,5 @@
 import { Plus } from "lucide-react";
 import { Container } from "@/components/ui/container";
-import { Eyebrow } from "@/components/ui/eyebrow";
 import { Reveal } from "@/components/ui/reveal";
 import { t } from "@/lib/i18n";
 import { getServerMessages } from "@/lib/i18n/server";
@@ -14,11 +13,14 @@ const ITEMS = [
 export async function Faq() {
   const m = await getServerMessages();
   return (
-    <section id="faq" className="scroll-mt-24 border-t border-line py-[84px]">
+    <section id="faq" className="scroll-mt-24 border-t border-line py-16">
       <Container>
-        <Reveal className="mb-8 max-w-[680px]">
-          <Eyebrow>{t(m, "landing.faq.eyebrow")}</Eyebrow>
-          <h2 className="serif mt-3.5 text-[38px]">{t(m, "landing.faq.title")}</h2>
+        {/* 风格 A 定稿：不挂 Eyebrow，直接一个 H2 “常见问题”领段；与上一版
+            “好问题。”的标题一并用 i18n 值同步。 */}
+        <Reveal className="mb-8 max-w-3xl">
+          <h2 className="serif text-[28px] text-ink min-[920px]:text-[32px]">
+            {t(m, "landing.faq.title")}
+          </h2>
         </Reveal>
         {ITEMS.map((item) => (
           <details key={item.q} className="group border-b border-line py-5">

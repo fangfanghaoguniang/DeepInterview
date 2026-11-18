@@ -56,7 +56,7 @@ function MasteryNodeComponent({ data }: NodeProps<MasteryFlowNode>) {
         style={{ opacity: 0, width: 1, height: 1, border: "none" }}
         isConnectable={false}
       />
-      <p className="text-[13px] font-medium" style={{ color: "#17171a" }}>
+      <p className="text-[13px] font-medium" style={{ color: "#1c1b1a" }}>
         {data.label}
       </p>
       <p
@@ -136,7 +136,7 @@ export function MasteryGraphView({
       </header>
 
       <div
-        className="h-[420px] w-full overflow-hidden rounded-card border border-line bg-panel"
+        className="h-[320px] w-full overflow-hidden rounded-card border border-line bg-panel sm:h-[420px]"
         role="img"
         aria-label={t(m, "prep.graphAria")}
       >
@@ -158,7 +158,7 @@ export function MasteryGraphView({
           minZoom={0.4}
           maxZoom={1.2}
         >
-          <Background color="#e7e3da" gap={22} size={1.2} />
+          <Background color="#e6e4df" gap={22} size={1.2} />
         </ReactFlow>
       </div>
 

@@ -19,7 +19,8 @@ from typing import TYPE_CHECKING
 from ..core.logging import get_logger
 from ..core.tracing import add_event, annotate_trace_io, start_trace
 from ..core.validation import validate_prep_inputs
-from ..shared_models import InterviewContext
+from ..shared_models import FocusSource, InterviewContext
+from .focus import resolve_focus
 from .graph import build_prep_graph
 from .nodes import fetch_cv
 
@@ -87,13 +88,15 @@ async def run_prep(req: PrepRequest, deps: Deps) -> str:
     pipeline synchronously on it. The session ends ``ready`` (or ``rejected`` for
     wholly meaningless input, or ``error`` if no plan could be produced).
     """
+    focus = await resolve_focus(req, deps)
     session_id = await deps.repo.create_session(req)
-    await run_prep_for_session(session_id, req, deps)
+    await run_prep_for_session(session_id, req, deps, focus)
     return session_id
 
 
 async def run_prep_for_session(
-    session_id: str, req: PrepRequest, deps: Deps
+    session_id: str, req: PrepRequest, deps: Deps,
+    focus: tuple[FocusSource | None, list[str]] | None = None,
 ) -> None:
     """Run the prep pipeline against an EXISTING session row.
 
@@ -113,11 +116,18 @@ async def run_prep_for_session(
         metadata={"company": req.company, "primary": req.language_mode.primary},
     ):
         try:
+            focus_source, avoid_questions = focus if focus is not None else await resolve_focus(req, deps)
             # Parse the CV document first so validation judges the EXTRACTED text
             # (real prose from a PDF/DOCX), not the data:/URL pointer or raw bytes.
             # Pass session_id so any "couldn't read the CV" warning is persisted.
             fetched = await fetch_cv({"req": req, "session_id": session_id}, deps)
             cv_text = fetched.get("cv_text", req.cv_url)
+            if (focus_source and req.cv_url.lower().startswith(("http://", "https://", "data:"))
+                    and (not cv_text.strip() or cv_text.strip() == req.cv_url.strip())):
+                await deps.repo.add_warnings(session_id, [
+                    "本次简历无法读取或链接已失效，请返回设置重新上传或粘贴简历。"
+                ])
+                raise ValueError("重点面试所需简历未能读取")
 
             ok, warnings = validate_prep_inputs(req, cv_text=cv_text)
             if warnings:
@@ -140,6 +150,8 @@ async def run_prep_for_session(
                     "session_id": session_id,
                     "cv_text": cv_text,
                     "company_ok": company_ok,
+                    "focus_source": focus_source,
+                    "avoid_questions": avoid_questions,
                 }
             )
 
@@ -153,6 +165,7 @@ async def run_prep_for_session(
                 cursor=0,
                 answers=[],
                 scorecard=None,
+                focus_source=focus_source,
             )
 
             await deps.repo.save_context(session_id, ctx)
@@ -182,6 +195,10 @@ async def run_prep_for_session(
         except Exception:
             log.exception("run_prep_for_session(%s) failed", session_id)
             try:
+                if req.focus_competency:
+                    await deps.repo.add_warnings(session_id, [
+                        "重点面试准备失败，未使用普通面试替代。请返回设置检查资料后重试。"
+                    ])
                 await deps.repo.update_status(session_id, "error")
             except Exception:  # noqa: BLE001 - best-effort status write
                 log.warning("could not mark session %s as error", session_id)

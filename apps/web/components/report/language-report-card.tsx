@@ -51,7 +51,8 @@ export async function LanguageReportCard({
         <CardDescription>{report.summary}</CardDescription>
       </CardHeader>
       <CardContent className="pb-6">
-        <div className="grid grid-cols-3 gap-3">
+        {/* 移动端单列堆叠，≥sm 才收拢三列（3 列在窄屏会把 /5 后缀挤换行） */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Stat
             label={t(m, "report.fluency")}
             value={report.fluency_score.toFixed(1)}

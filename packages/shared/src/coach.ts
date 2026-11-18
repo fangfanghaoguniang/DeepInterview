@@ -31,6 +31,50 @@ export const StudyPlanSchema = z.object({
 });
 export type StudyPlan = z.infer<typeof StudyPlanSchema>;
 
+export const StudyCardSchema = z.object({
+  id: z.string(),
+  competency: z.string(),
+  front: z.string(),
+  back: z.string(),
+  source: z.enum(["interview", "drill"]),
+});
+export const StudyTargetSchema = z.object({
+  module: StudyModuleSchema,
+  growth: z.array(z.string()),
+  actions: z.array(z.string()),
+  material_status: z.enum(["pending", "ready", "failed"]),
+  error: z.string().nullable().default(null),
+  cards: z.array(StudyCardSchema).default([]),
+});
+export const CoachFeedbackSchema = z.object({
+  module_id: z.string(),
+  mastery: MasteryStateSchema.nullable().default(null),
+  note: z.string(),
+});
+export const CoachRunSchema = z.object({
+  id: z.string(),
+  version: z.string(),
+  entry_module: z.string().nullable().default(null),
+  status: z.enum(["running", "pending", "ready", "failed"]),
+  started_at: z.number(),
+  feedback: z.array(CoachFeedbackSchema).default([]),
+});
+export const StudyViewSchema = z.object({
+  session_id: z.string(),
+  version: z.string(),
+  language: LanguageSchema,
+  role: z.string().nullable().default(null),
+  company: z.string().nullable().default(null),
+  status: z.enum(["idle", "preparing", "ready", "failed", "empty"]),
+  error: z.string().nullable().default(null),
+  targets: z.array(StudyTargetSchema),
+  coach_run: CoachRunSchema.nullable().default(null),
+});
+export type StudyCard = z.infer<typeof StudyCardSchema>;
+export type StudyTarget = z.infer<typeof StudyTargetSchema>;
+export type StudyView = z.infer<typeof StudyViewSchema>;
+export type CoachRun = z.infer<typeof CoachRunSchema>;
+
 // A learner's question to the coach chat.
 export const CoachChatRequestSchema = z.object({
   session_id: z.string(),

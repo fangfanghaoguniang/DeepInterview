@@ -10,8 +10,8 @@ import type { MasteryState } from "@/lib/sample-mastery";
  * plan chips and (via the same palette) the mastery-graph nodes:
  *   unseen   → faint / neutral
  *   learning → accent-soft (indigo, the one accent)
- *   shaky    → amber (the single warm tone in the palette; inline hex since
- *              there is no `amber` token — kept tasteful and low-chroma)
+ *   shaky    → warn amber (the single warm tone in the palette; inline hex
+ *              since there is no `amber` token — kept tasteful and low-chroma)
  *   mastered → ok green
  */
 export const MASTERY_LABEL: Record<MasteryState, string> = {
@@ -48,10 +48,10 @@ export const MASTERY_COLORS: Record<
   MasteryState,
   { bg: string; fg: string; border: string }
 > = {
-  unseen: { bg: "#f4f3ef", fg: "#73737b", border: "#e7e3da" },
-  learning: { bg: "#eef0fb", fg: "#4338ca", border: "#d7d9f4" },
-  shaky: { bg: "#fbf2e6", fg: "#9a6212", border: "#efddc2" },
-  mastered: { bg: "#e8f3ec", fg: "#15803d", border: "#cfe6d6" },
+  unseen: { bg: "#f4f3ef", fg: "#6b6b66", border: "#e6e4df" },
+  learning: { bg: "#eef1ff", fg: "#3d4ab8", border: "#dde3ff" },
+  shaky: { bg: "#fbf2e6", fg: "#b4690e", border: "#efddc2" },
+  mastered: { bg: "#e8f3ec", fg: "#1f7a5c", border: "#cfe6d6" },
 };
 
 export function StatusChip({

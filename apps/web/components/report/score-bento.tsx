@@ -85,7 +85,7 @@ export async function ScoreBento({ scorecard }: { scorecard: ScoreCard }) {
       <div className="md:row-span-1 flex flex-col justify-between rounded-card border border-line bg-panel p-6 shadow-[0_1px_0_rgba(0,0,0,0.02),0_24px_48px_-28px_rgba(20,20,30,0.12)]">
         <Eyebrow>{t(m, "report.overall")}</Eyebrow>
         <div className="mt-4 flex items-baseline gap-1">
-          <span className="font-serif text-[64px] leading-none text-ink">
+          <span className="font-serif text-[44px] leading-none text-ink sm:text-[64px]">
             {scorecard.overall_score.toFixed(1)}
           </span>
           <span className="font-serif text-2xl text-faint">/5</span>
@@ -95,8 +95,8 @@ export async function ScoreBento({ scorecard }: { scorecard: ScoreCard }) {
         </p>
       </div>
 
-      {/* 2x2 metric tiles */}
-      <div className="grid grid-cols-2 gap-4 md:col-span-2">
+      {/* 2x2 metric tiles — 窄屏单列，避免英文标签下磁贴内文字挤行 */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:col-span-2">
         {metrics.map((m) => (
           <div
             key={m.label}

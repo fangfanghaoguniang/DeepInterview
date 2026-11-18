@@ -15,6 +15,7 @@ from typing import TypedDict
 from ..shared_models import (
     CandidateProfile,
     CompanyIntel,
+    FocusSource,
     GapAnalysis,
     JobSpec,
     PrepRequest,
@@ -36,3 +37,5 @@ class PrepState(TypedDict, total=False):
     company: CompanyIntel
     gap: GapAnalysis
     plan: QuestionPlan
+    focus_source: FocusSource | None
+    avoid_questions: list[str]

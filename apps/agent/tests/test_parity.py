@@ -138,3 +138,27 @@ def test_every_generated_schema_has_a_pydantic_mirror() -> None:
     assert not stale_entries, (
         f"MODELS entries with no generated Zod schema: {stale_entries}"
     )
+
+
+def _nested_shape(node: dict, defs: dict):
+    node = _resolve(node, defs)
+    branches = node.get("anyOf") or node.get("oneOf")
+    if branches:
+        non_null = [_resolve(b, defs) for b in branches if b.get("type") != "null"]
+        if len(non_null) == 1:
+            return _nested_shape(non_null[0], defs)
+    category = _type_category(node, defs)
+    if category == "object" and "properties" in node:
+        required = set(node.get("required", []))
+        return {key: (key in required, _nested_shape(value, defs))
+                for key, value in node["properties"].items()}
+    if category == "array":
+        return ("array", _nested_shape(node.get("items", {}), defs))
+    return category
+
+
+@pytest.mark.parametrize("name", ["StudyView", "PrepSource", "InterviewContext", "ScoreCard"])
+def test_learning_contracts_match_through_nested_fields(name):
+    zod = json.loads((SCHEMA_DIR / f"{name}.json").read_text(encoding="utf-8"))
+    pydantic = MODELS[name].model_json_schema()
+    assert _nested_shape(zod, _defs(zod)) == _nested_shape(pydantic, _defs(pydantic))

@@ -126,6 +126,13 @@
           },
           "competency": {
             "type": "string"
+          },
+          "actions": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [

@@ -1,121 +1,111 @@
-"use client";
-
-import { useEffect, useMemo, useRef, useState } from "react";
 import { t } from "@/lib/i18n";
-import { useMessages } from "@/lib/i18n/client";
+import { getServerMessages } from "@/lib/i18n/server";
+import { serverEnv } from "@/lib/env";
+import { SessionViewSchema, type SessionView } from "@/lib/session";
 
-export function HeroMock() {
-  const messages = useMessages();
-  // Stable across renders for a given locale — the typing effect depends on it.
-  const { BASE, PHRASES } = useMemo(() => {
-    const base = t(messages, "landing.mock.answerBase");
-    return {
-      BASE: base,
-      PHRASES: [
-        base,
-        `${base}${t(messages, "landing.mock.answerExt1")}`,
-        `${base}${t(messages, "landing.mock.answerExt2")}`,
-      ],
-    };
-  }, [messages]);
-  const [said, setSaid] = useState(BASE);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+/**
+ * Hero 右侧视觉：风格 A 定稿的评分卡（上一场分数 + 维度进度条 + 生成补课计划）。
+ *
+ * 仅在存在已完成的真实面试时渲染，无数据时返回 null（不展示模拟卡片）。
+ */
 
-  useEffect(() => {
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
-    let pi = 0;
-    let ci = BASE.length;
-    let dir = 1;
-    const tick = () => {
-      const full = PHRASES[pi];
-      if (!full) return;
-      setSaid(full.slice(0, ci));
-      ci += dir;
-      if (ci > full.length) {
-        dir = -1;
-        timer.current = setTimeout(tick, 1600);
-        return;
-      }
-      if (ci < BASE.length) {
-        dir = 1;
-        pi = (pi + 1) % PHRASES.length;
-      }
-      timer.current = setTimeout(tick, dir > 0 ? 42 : 16);
-    };
-    timer.current = setTimeout(tick, 1200);
-    return () => {
-      if (timer.current) clearTimeout(timer.current);
-    };
-    // Restart the typing loop when the dictionary (locale) changes.
-  }, [BASE, PHRASES]);
+const TONE_BAR: Record<string, string> = {
+  danger: "bg-danger",
+  warn: "bg-warn",
+  accent: "bg-accent",
+  ok: "bg-ok",
+};
+
+function toneForScore(pct: number): string {
+  if (pct < 50) return "danger";
+  if (pct < 70) return "warn";
+  return "ok";
+}
+
+/** Fetch the latest completed session from the agent API (server-side). */
+async function fetchLatestSession(): Promise<SessionView | null> {
+  try {
+    const res = await fetch(`${serverEnv.agentApiUrl}/api/sessions/latest`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!res.ok) return null;
+    const parsed = SessionViewSchema.safeParse(await res.json());
+    if (!parsed.success) return null;
+    // Only show if it actually has a scorecard with competency scores
+    if (!parsed.data.scorecard || parsed.data.scorecard.competency_scores.length === 0) {
+      return null;
+    }
+    return parsed.data;
+  } catch {
+    return null;
+  }
+}
+
+export async function HeroMock() {
+  const m = await getServerMessages();
+  const session = await fetchLatestSession();
+
+  // 没有已完成的面试则不渲染任何卡片
+  if (!session) return null;
+
+  const role = session.context?.job.title ?? null;
+  const overallPct = Math.round((session.scorecard!.overall_score / 5) * 100);
+  const dimensions = session.scorecard!.competency_scores.slice(0, 4).map((cs) => ({
+    label: cs.competency,
+    score: Math.round((cs.score / 5) * 100),
+    tone: toneForScore((cs.score / 5) * 100),
+  }));
+  const sessionTag = role
+    ? `上一场 · ${role}`
+    : t(m, "landing.mock.sessionTag");
 
   return (
     <div
       aria-hidden="true"
-      className="overflow-hidden rounded-2xl border border-line bg-panel shadow-[0_1px_0_rgba(0,0,0,0.02),0_24px_48px_-28px_rgba(20,20,30,0.22)]"
+      className="rounded-2xl border border-line bg-panel p-6 shadow-[0_1px_2px_rgba(28,27,26,0.05),0_8px_24px_rgba(28,27,26,0.06)]"
     >
-      <div className="flex items-center gap-2 border-b border-line-2 bg-[#FCFBF9] px-3.5 py-[11px]">
-        <span className="h-2.5 w-2.5 rounded-full bg-[#E4E0D7]" />
-        <span className="h-2.5 w-2.5 rounded-full bg-[#E4E0D7]" />
-        <span className="h-2.5 w-2.5 rounded-full bg-[#E4E0D7]" />
-        <span className="ml-2 rounded-md border border-line-2 bg-[#F4F1EA] px-[9px] py-[3px] font-mono text-[11.5px] text-faint">
-          deepinterview.ai/session/8f2a
+      {/* 表头：上一场元信息 + 完成状态 chip */}
+      <div className="mb-5 flex items-center justify-between">
+        <span className="text-[14px] font-medium text-ink">
+          {sessionTag}
+        </span>
+        <span className="rounded-full bg-ok/10 px-2.5 py-1 text-[12px] font-medium text-ok">
+          {t(m, "landing.mock.statusDone")}
         </span>
       </div>
-      <div className="grid grid-cols-[150px_1fr]">
-        <div className="flex flex-col gap-3 border-r border-line-2 p-4">
-          <div className="relative aspect-square overflow-hidden rounded-xl bg-[linear-gradient(160deg,#23232A,#3C3A4D)]">
-            <div className="absolute inset-0 grid place-items-center font-serif text-3xl text-[#D9D6E8]">
-              A
+
+      {/* 综合分 + 目标线偏差（同行 baseline 排布，与设计稿一致） */}
+      <div className="mb-6 flex items-end gap-3">
+        <span className="serif text-[48px] font-bold leading-none tracking-tight text-ink">
+          {overallPct}
+        </span>
+        <span className="pb-1.5 text-[13px] text-muted">
+          /100 {t(m, "landing.mock.scoreSuffix")}
+        </span>
+      </div>
+
+      {/* 维度进度 */}
+      <div className="flex flex-col gap-3.5">
+        {dimensions.map((dim, i) => (
+          <div key={i}>
+            <div className="mb-1 flex justify-between text-[12px]">
+              <span className="text-muted">{dim.label}</span>
+              <span className="font-medium text-ink">{dim.score}</span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-accent-soft">
+              <div
+                className={`h-1.5 rounded-full ${TONE_BAR[dim.tone] ?? "bg-ok"}`}
+                style={{ width: `${dim.score}%` }}
+              />
             </div>
           </div>
-          <div className="flex items-center gap-[7px] font-mono text-[11.5px] text-muted">
-            <span className="anim-rec h-[7px] w-[7px] rounded-full bg-[#DC2626]" />{" "}
-            04:12
-          </div>
-          <div className="self-start rounded-md border border-line px-2 py-[3px] font-mono text-[11px] text-ink-soft">
-            {t(messages, "landing.mock.role")}
-          </div>
-          <div className="self-start rounded-md border border-line px-2 py-[3px] font-mono text-[11px] text-ink-soft">
-            {t(messages, "landing.mock.track")}
-          </div>
-        </div>
-        <div className="flex min-h-[268px] flex-col gap-[13px] px-[18px] py-4">
-          <div className="flex gap-2.5">
-            <div className="w-[74px] flex-shrink-0 pt-0.5 font-mono text-[10.5px] uppercase tracking-[0.06em] text-faint">
-              {t(messages, "landing.mock.interviewer")}
-            </div>
-            <div className="text-[13.5px] font-[450] leading-[1.5] text-ink">
-              {t(messages, "landing.mock.question")}
-            </div>
-          </div>
-          <div className="flex gap-2.5">
-            <div className="w-[74px] flex-shrink-0 pt-0.5 font-mono text-[10.5px] uppercase tracking-[0.06em] text-faint">
-              {t(messages, "landing.mock.you")}
-            </div>
-            <div className="text-[13.5px] leading-[1.5] text-ink-soft">
-              {said}
-              <span className="anim-cursor ml-px inline-block h-3.5 w-[7px] translate-y-[2px] bg-accent" />
-            </div>
-          </div>
-          <div className="mt-auto flex flex-wrap gap-[18px] border-t border-line-2 pt-3">
-            {[
-              [t(messages, "landing.mock.scoreComm"), "8.5"],
-              [t(messages, "landing.mock.scoreDesign"), "7.0"],
-              [t(messages, "landing.mock.scoreClarity"), "9.0"],
-            ].map(([k, v]) => (
-              <div key={k} className="flex flex-col gap-[3px]">
-                <span className="font-mono text-[10.5px] uppercase tracking-[0.05em] text-faint">
-                  {k}
-                </span>
-                <span className="font-serif text-[19px] text-ink">
-                  {v}
-                  <small className="text-xs text-faint">/10</small>
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
+        ))}
+      </div>
+
+      {/* 底部：把短板转成下一份练习计划 */}
+      <div className="mt-6 w-full rounded-lg border border-accent/40 py-2.5 text-center text-[13.5px] font-medium text-accent-strong transition-colors hover:bg-accent-soft">
+        {t(m, "landing.mock.generatePlan")}
       </div>
     </div>
   );

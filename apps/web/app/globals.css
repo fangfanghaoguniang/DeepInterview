@@ -1,17 +1,23 @@
 @import "tailwindcss";
 
 @theme {
-  --color-paper: #fbfaf8;
+  /* 风格 A 定稿色板（2026-11 换肤，与 design-mockups/d2-*.html 逐一对照） */
+  --color-paper: #fafaf7;
   --color-panel: #ffffff;
-  --color-ink: #17171a;
+  --color-ink: #1c1b1a;
   --color-ink-soft: #3a3a40;
-  --color-muted: #73737b;
+  --color-muted: #6b6b66;
   --color-faint: #9a9aa1;
-  --color-line: #e7e3da;
+  --color-line: #e6e4df;
   --color-line-2: #efece5;
-  --color-accent: #4338ca;
-  --color-accent-soft: #eef0fb;
-  --color-ok: #15803d;
+  --color-accent: #4f5dd5;
+  --color-accent-strong: #3d4ab8;
+  --color-accent-deep: #313b93;
+  --color-accent-soft: #eef1ff;
+  --color-accent-mid: #dde3ff;
+  --color-ok: #1f7a5c;
+  --color-warn: #b4690e;
+  --color-danger: #b3372f;
 
   --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
   --font-serif: var(--font-fraunces), Georgia, serif;
@@ -64,6 +70,17 @@
     text-transform: uppercase;
     color: var(--color-accent);
   }
+}
+
+/* 教练间绿色强调（2026-11 换肤拍板）：Tailwind v4 的 accent 工具类均经
+   var(--color-*) 解析，在房间外壳上重定义即可让整棵子树（ControlBar /
+   TranscriptPanel / VoiceStage / ErrorNotice / 计时器圆点）换绿，不改
+   共享组件，也不影响面试间。 */
+.coach-tone {
+  --color-accent: var(--color-ok);
+  --color-accent-strong: #166348;
+  --color-accent-soft: #e8f3ec;
+  --color-accent-mid: #cfe6d6;
 }
 
 @keyframes dpulse {

@@ -5,11 +5,16 @@ and post pipelines. :class:`MemoryRepository` is the default (a process-wide
 singleton so a session written during ``POST /api/prep`` is visible to later
 reads in the same process). :class:`SupabaseRepository` persists to the
 ``public.sessions`` table (see ``supabase/migrations/0001_init.sql``) and
-lazy-imports the ``supabase`` SDK.
+lazy-imports the ``supabase`` SDK. :class:`PostgresRepository` persists to a
+native Postgres (local Docker / self-hosted) via ``asyncpg`` and takes priority
+over Supabase when ``POSTGRES_DSN`` is set.
 """
 
 from __future__ import annotations
 
+import asyncio
+import json
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from uuid import uuid4
@@ -64,6 +69,13 @@ class SessionRepository(Protocol):
         self, session_id: str, competency: str, state: str
     ) -> None: ...
 
+    async def get_learning_data(self, session_id: str) -> dict | None: ...
+
+    async def compare_and_set_study(
+        self, session_id: str, revision: int, state: dict,
+        drills: list[dict] | None = None, practice: dict | None = None,
+    ) -> bool: ...
+
     async def get_drill_items(self, session_id: str) -> list[dict] | None: ...
 
     async def add_drill_items(
@@ -75,6 +87,8 @@ class SessionRepository(Protocol):
     async def add_warnings(self, session_id: str, warnings: list[str]) -> None: ...
 
     async def get_session_view(self, session_id: str) -> SessionView | None: ...
+
+    async def get_latest_completed(self) -> SessionView | None: ...
 
 
 @dataclass
@@ -100,6 +114,8 @@ class _SessionRow:
     # Targeted drill questions generated for overflow growth competencies (see
     # migration 0008); study-only extras, never folded back into the plan.
     drill_items: list[dict] = field(default_factory=list)
+    study_state: dict = field(default_factory=dict)
+    study_revision: int = 0
     answers: list[dict] = field(default_factory=list)
     progress: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
@@ -110,6 +126,7 @@ class MemoryRepository:
 
     def __init__(self) -> None:
         self._rows: dict[str, _SessionRow] = {}
+        self._study_lock = asyncio.Lock()
 
     async def create_session(self, req: PrepRequest) -> str:
         session_id = _new_session_id()
@@ -194,6 +211,31 @@ class MemoryRepository:
         row.drill_items = list(by_id.values())
         return list(row.drill_items)
 
+    async def get_learning_data(self, session_id: str) -> dict | None:
+        row = self._rows.get(session_id)
+        if row is None:
+            return None
+        return deepcopy({key: getattr(row, key) for key in (
+            "user_id", "cv_url", "jd_text", "company", "language_mode",
+            "study_state", "study_revision", "drill_items", "practice_state",
+        )})
+
+    async def compare_and_set_study(
+        self, session_id: str, revision: int, state: dict,
+        drills: list[dict] | None = None, practice: dict | None = None,
+    ) -> bool:
+        async with self._study_lock:
+            row = self._require(session_id)
+            if row.study_revision != revision:
+                return False
+            row.study_state = deepcopy(state)
+            row.study_revision += 1
+            by_id = {d["id"]: d for d in row.drill_items}
+            by_id.update({d["id"]: deepcopy(d) for d in drills or []})
+            row.drill_items = list(by_id.values())
+            row.practice_state.update(practice or {})
+            return True
+
     async def mark_progress(self, session_id: str, step: str) -> None:
         row = self._require(session_id)
         if step not in row.progress:
@@ -223,6 +265,26 @@ class MemoryRepository:
             context=context,
             scorecard=scorecard,
         )
+
+    async def get_latest_completed(self) -> SessionView | None:
+        """Return the most recently created session with status 'complete'."""
+        # Python 3.7+ dicts preserve insertion order; iterate reversed to find
+        # the latest entry that has been scored.
+        for row in reversed(list(self._rows.values())):
+            if row.status == "complete" and row.scorecard is not None:
+                context = (
+                    InterviewContext.model_validate(row.context) if row.context else None
+                )
+                scorecard = ScoreCard.model_validate(row.scorecard)
+                return SessionView(
+                    session_id=row.id,
+                    status=row.status,
+                    progress=list(row.progress),
+                    prep_warnings=list(row.warnings),
+                    context=context,
+                    scorecard=scorecard,
+                )
+        return None
 
     # --- test / inspection helpers (not part of the protocol) ----------------
     def get_status(self, session_id: str) -> str | None:
@@ -408,6 +470,25 @@ class SupabaseRepository:
             await self._update(session_id, {"drill_items": merged})
         return merged
 
+    async def get_learning_data(self, session_id: str) -> dict | None:
+        resp = await self._exec(lambda: self._table().select(
+            "user_id,cv_url,jd_text,company,language_mode,study_state,study_revision,"
+            "drill_items,practice_state"
+        ).eq("id", session_id).limit(1).execute())
+        rows = getattr(resp, "data", None) or []
+        return rows[0] if rows else None
+
+    async def compare_and_set_study(
+        self, session_id: str, revision: int, state: dict,
+        drills: list[dict] | None = None, practice: dict | None = None,
+    ) -> bool:
+        self._table()
+        resp = await self._exec(lambda: self._client.rpc("study_compare_and_set", {
+            "p_session_id": session_id, "p_revision": revision, "p_state": state,
+            "p_drills": drills or [], "p_practice": practice or {},
+        }).execute())
+        return getattr(resp, "data", False) is True
+
     async def mark_progress(self, session_id: str, step: str) -> None:
         def _build() -> Any:
             return self._table().select("progress").eq("id", session_id).limit(1).execute()
@@ -462,6 +543,38 @@ class SupabaseRepository:
             scorecard=scorecard,
         )
 
+    async def get_latest_completed(self) -> SessionView | None:
+        """Return the most recent session with status 'complete' and a scorecard."""
+        def _build() -> Any:
+            return (
+                self._table()
+                .select("id,status,progress,prep_warnings,context,scorecard")
+                .eq("status", "complete")
+                .order("created_at", desc=True)
+                .limit(1)
+                .execute()
+            )
+
+        resp = await self._exec(_build)
+        rows = getattr(resp, "data", None) or []
+        if not rows:
+            return None
+        row = rows[0]
+        ctx_data = row.get("context")
+        context = InterviewContext.model_validate(ctx_data) if ctx_data else None
+        sc_data = row.get("scorecard")
+        if not sc_data:
+            return None
+        scorecard = ScoreCard.model_validate(sc_data)
+        return SessionView(
+            session_id=row["id"],
+            status=row.get("status", "complete"),
+            progress=list(row.get("progress") or []),
+            prep_warnings=list(row.get("prep_warnings") or []),
+            context=context,
+            scorecard=scorecard,
+        )
+
     async def _update(self, session_id: str, values: dict[str, Any]) -> None:
         await self._exec(lambda: self._table().update(values).eq("id", session_id).execute())
 
@@ -470,8 +583,307 @@ class SupabaseRepository:
 _MEMORY_REPO = MemoryRepository()
 
 
+class PostgresRepository:
+    """Persist sessions to a native Postgres database via asyncpg connection pool.
+
+    Designed for a local Docker Postgres (or any self-hosted instance). Uses a
+    single ``sessions`` table with JSONB columns mirroring the Supabase schema.
+    """
+
+    def __init__(self, dsn: str) -> None:
+        self._dsn = dsn
+        self._pool: Any = None  # lazy-init asyncpg.Pool
+
+    async def _get_pool(self) -> Any:
+        if self._pool is None:
+            try:
+                import asyncpg
+            except ImportError as exc:  # pragma: no cover
+                raise RuntimeError(
+                    "asyncpg is not installed; install the 'postgres' extra."
+                ) from exc
+            self._pool = await asyncpg.create_pool(self._dsn, min_size=1, max_size=5)
+        return self._pool
+
+    @staticmethod
+    def _decode_row(row) -> dict:
+        result = dict(row)
+        for key in ("context", "scorecard", "language_mode", "progress", "prep_warnings",
+                    "transcript", "coach_transcript", "practice_state", "drill_items", "study_state"):
+            if isinstance(result.get(key), str):
+                result[key] = json.loads(result[key])
+        return result
+
+    async def _fetch(self, sql: str, *args: Any) -> list[dict]:
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(sql, *args)
+            return [self._decode_row(r) for r in rows]
+
+    async def _fetchrow(self, sql: str, *args: Any) -> dict | None:
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(sql, *args)
+            return self._decode_row(row) if row else None
+
+    async def _execute(self, sql: str, *args: Any) -> None:
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute(sql, *args)
+
+    # --- protocol methods -------------------------------------------------------
+
+    async def create_session(self, req: PrepRequest) -> str:
+        import json
+
+        session_id = _new_session_id()
+        await self._execute(
+            """INSERT INTO sessions (id, status, user_id, company, cv_url, jd_text, language_mode, progress, prep_warnings)
+               VALUES ($1, 'prep', $2, $3, $4, $5, $6::jsonb, '[]'::jsonb, '[]'::jsonb)""",
+            session_id,
+            req.user_id,
+            req.company,
+            req.cv_url,
+            req.jd_text,
+            json.dumps(req.language_mode.model_dump()),
+        )
+        return session_id
+
+    async def save_context(self, session_id: str, ctx: InterviewContext) -> None:
+        import json
+
+        await self._execute(
+            "UPDATE sessions SET context = $1::jsonb WHERE id = $2",
+            json.dumps(ctx.model_dump()),
+            session_id,
+        )
+
+    async def load_context(self, session_id: str) -> InterviewContext | None:
+        row = await self._fetchrow(
+            "SELECT context FROM sessions WHERE id = $1", session_id
+        )
+        if not row or not row["context"]:
+            return None
+        return InterviewContext.model_validate(row["context"])
+
+    async def update_status(self, session_id: str, status: str) -> None:
+        await self._execute(
+            "UPDATE sessions SET status = $1 WHERE id = $2", status, session_id
+        )
+
+    async def append_answer(self, session_id: str, a: AnswerRecord) -> None:
+        import json
+
+        row = await self._fetchrow(
+            "SELECT context FROM sessions WHERE id = $1", session_id
+        )
+        if not row or not row["context"]:
+            return
+        ctx = InterviewContext.model_validate(row["context"])
+        ctx.answers.append(a)
+        await self._execute(
+            "UPDATE sessions SET context = $1::jsonb WHERE id = $2",
+            json.dumps(ctx.model_dump()),
+            session_id,
+        )
+
+    async def save_scorecard(self, session_id: str, sc: ScoreCard) -> None:
+        import json
+
+        await self._execute(
+            "UPDATE sessions SET scorecard = $1::jsonb WHERE id = $2",
+            json.dumps(sc.model_dump()),
+            session_id,
+        )
+
+    async def save_transcript(self, session_id: str, turns: list[dict]) -> None:
+        import json
+
+        await self._execute(
+            "UPDATE sessions SET transcript = $1::jsonb WHERE id = $2",
+            json.dumps(list(turns)),
+            session_id,
+        )
+
+    async def save_coach_transcript(self, session_id: str, turns: list[dict]) -> None:
+        import json
+
+        await self._execute(
+            "UPDATE sessions SET coach_transcript = $1::jsonb WHERE id = $2",
+            json.dumps(list(turns)),
+            session_id,
+        )
+
+    async def get_coach_transcript(self, session_id: str) -> list[dict] | None:
+        row = await self._fetchrow(
+            "SELECT coach_transcript FROM sessions WHERE id = $1", session_id
+        )
+        if row is None:
+            return None
+        return list(row.get("coach_transcript") or [])
+
+    async def get_practice_state(self, session_id: str) -> PracticeState | None:
+        row = await self._fetchrow(
+            "SELECT practice_state FROM sessions WHERE id = $1", session_id
+        )
+        if row is None:
+            return None
+        return dict(row.get("practice_state") or {})
+
+    async def set_practice_state(
+        self, session_id: str, competency: str, state: str
+    ) -> None:
+        import json
+
+        row = await self._fetchrow(
+            "SELECT practice_state FROM sessions WHERE id = $1", session_id
+        )
+        current = dict(row.get("practice_state") or {}) if row else {}
+        if current.get(competency) == state:
+            return
+        current[competency] = state
+        await self._execute(
+            "UPDATE sessions SET practice_state = $1::jsonb WHERE id = $2",
+            json.dumps(current),
+            session_id,
+        )
+
+    async def get_drill_items(self, session_id: str) -> list[dict] | None:
+        row = await self._fetchrow(
+            "SELECT drill_items FROM sessions WHERE id = $1", session_id
+        )
+        if row is None:
+            return None
+        return list(row.get("drill_items") or [])
+
+    async def add_drill_items(
+        self, session_id: str, items: list[dict]
+    ) -> list[dict]:
+        import json
+
+        row = await self._fetchrow(
+            "SELECT drill_items FROM sessions WHERE id = $1", session_id
+        )
+        existing = list(row.get("drill_items") or []) if row else []
+        by_id = {d.get("id"): d for d in existing}
+        changed = False
+        for it in items:
+            if by_id.get(it["id"]) != it:
+                by_id[it["id"]] = it
+                changed = True
+        merged = list(by_id.values())
+        if changed:
+            await self._execute(
+                "UPDATE sessions SET drill_items = $1::jsonb WHERE id = $2",
+                json.dumps(merged),
+                session_id,
+            )
+        return merged
+
+    async def get_learning_data(self, session_id: str) -> dict | None:
+        row = await self._fetchrow(
+            "SELECT user_id, cv_url, jd_text, company, language_mode, study_state, "
+            "study_revision, drill_items, practice_state FROM sessions WHERE id = $1",
+            session_id,
+        )
+        if row:
+            for key in ("language_mode", "study_state", "drill_items", "practice_state"):
+                if isinstance(row.get(key), str):
+                    row[key] = json.loads(row[key])
+        return row
+
+    async def compare_and_set_study(
+        self, session_id: str, revision: int, state: dict,
+        drills: list[dict] | None = None, practice: dict | None = None,
+    ) -> bool:
+        row = await self._fetchrow(
+            "SELECT study_compare_and_set($1, $2, $3::jsonb, $4::jsonb, $5::jsonb) AS ok",
+            session_id, revision, json.dumps(state), json.dumps(drills or []),
+            json.dumps(practice or {}),
+        )
+        return bool(row and row["ok"])
+
+    async def mark_progress(self, session_id: str, step: str) -> None:
+        import json
+
+        row = await self._fetchrow(
+            "SELECT progress FROM sessions WHERE id = $1", session_id
+        )
+        progress = list(row.get("progress") or []) if row else []
+        if step not in progress:
+            progress.append(step)
+            await self._execute(
+                "UPDATE sessions SET progress = $1::jsonb WHERE id = $2",
+                json.dumps(progress),
+                session_id,
+            )
+
+    async def add_warnings(self, session_id: str, warnings: list[str]) -> None:
+        import json
+
+        row = await self._fetchrow(
+            "SELECT prep_warnings FROM sessions WHERE id = $1", session_id
+        )
+        existing = list(row.get("prep_warnings") or []) if row else []
+        changed = False
+        for w in warnings:
+            if w not in existing:
+                existing.append(w)
+                changed = True
+        if changed:
+            await self._execute(
+                "UPDATE sessions SET prep_warnings = $1::jsonb WHERE id = $2",
+                json.dumps(existing),
+                session_id,
+            )
+
+    async def get_session_view(self, session_id: str) -> SessionView | None:
+        row = await self._fetchrow(
+            "SELECT id, status, progress, prep_warnings, context, scorecard FROM sessions WHERE id = $1",
+            session_id,
+        )
+        if not row:
+            return None
+        context = (
+            InterviewContext.model_validate(row["context"]) if row["context"] else None
+        )
+        scorecard = (
+            ScoreCard.model_validate(row["scorecard"]) if row["scorecard"] else None
+        )
+        return SessionView(
+            session_id=row["id"],
+            status=row.get("status", "prep"),
+            progress=list(row.get("progress") or []),
+            prep_warnings=list(row.get("prep_warnings") or []),
+            context=context,
+            scorecard=scorecard,
+        )
+
+    async def get_latest_completed(self) -> SessionView | None:
+        row = await self._fetchrow(
+            """SELECT id, status, progress, prep_warnings, context, scorecard
+               FROM sessions WHERE status = 'complete' AND scorecard IS NOT NULL
+               ORDER BY created_at DESC LIMIT 1""",
+        )
+        if not row:
+            return None
+        context = (
+            InterviewContext.model_validate(row["context"]) if row["context"] else None
+        )
+        scorecard = ScoreCard.model_validate(row["scorecard"])
+        return SessionView(
+            session_id=row["id"],
+            status=row.get("status", "complete"),
+            progress=list(row.get("progress") or []),
+            prep_warnings=list(row.get("prep_warnings") or []),
+            context=context,
+            scorecard=scorecard,
+        )
+
 def get_repository(settings: Settings) -> SessionRepository:
-    """Return a repository: Supabase if fully configured, else the memory singleton."""
+    """Return a repository: Postgres > Supabase > memory (in priority order)."""
+    if settings.postgres_dsn:
+        return PostgresRepository(settings.postgres_dsn)
     if settings.supabase_url and settings.supabase_service_role_key:
         return SupabaseRepository(settings.supabase_url, settings.supabase_service_role_key)
     if settings.supabase_url or settings.supabase_service_role_key:

@@ -1,6 +1,5 @@
 import { Container } from "@/components/ui/container";
-import { BrandMark } from "@/components/ui/brand-mark";
-import { GITHUB_URL, DOCS_URL } from "@/lib/site";
+import { GITHUB_URL } from "@/lib/site";
 import { t } from "@/lib/i18n";
 import { getServerMessages } from "@/lib/i18n/server";
 
@@ -44,17 +43,16 @@ const PRODUCT_LINKS: { href: string; key: string }[] = [
   { href: "#faq", key: "landing.foot.faq" },
 ];
 
-const DEVELOPER_LINKS: { href: string; key: string; external?: boolean }[] = [
-  { href: GITHUB_URL, key: "landing.foot.github", external: true },
-  { href: DOCS_URL, key: "landing.foot.docs", external: true },
-  { href: DOCS_URL, key: "landing.foot.selfhost", external: true },
-  { href: GITHUB_URL, key: "landing.foot.packs", external: true },
+const USE_LINKS: { href: string; key: string }[] = [
+  { href: "/signup", key: "landing.foot.signup" },
+  { href: "/login", key: "landing.foot.login" },
+  { href: "/setup", key: "landing.foot.setup" },
 ];
 
-const COMMUNITY_LINKS: { href: string; key: string; external?: boolean }[] = [
-  { href: `${GITHUB_URL}/discussions`, key: "landing.foot.discussions", external: true },
-  { href: `${GITHUB_URL}/issues`, key: "landing.foot.issues", external: true },
-  { href: GITHUB_URL, key: "landing.foot.contributing", external: true },
+const ABOUT_LINKS: { href: string; key: string }[] = [
+  // 风格 A 定稿：关于列先开一个“隐私与数据”占位（真实路由尚未存在，暂指回页面顶部）；
+  // 与上一版只有静默致谢不同，提供可见的数据主权入口。
+  { href: "#top", key: "landing.foot.privacy" },
 ];
 
 export async function Footer() {
@@ -67,7 +65,13 @@ export async function Footer() {
         <div className="mb-9 grid grid-cols-2 gap-[30px] md:grid-cols-[2fr_1fr_1fr_1fr]">
           <div>
             <div className="mb-3 flex items-center gap-[9px]">
-              <BrandMark size={22} />
+              {/* 风格 A 定稿：方块 DI 白字（brand-600 蓝），与导航栏同款。 */}
+              <span
+                aria-hidden
+                className="grid h-7 w-7 place-items-center rounded-lg bg-accent-strong text-[11px] font-bold text-white"
+              >
+                DI
+              </span>
               <span className="text-[17px] font-semibold tracking-[-0.01em]">
                 DeepInterview
               </span>
@@ -77,8 +81,34 @@ export async function Footer() {
             </p>
           </div>
           <FooterCol title={t(m, "landing.foot.product")} links={withLabels(PRODUCT_LINKS)} />
-          <FooterCol title={t(m, "landing.foot.developers")} links={withLabels(DEVELOPER_LINKS)} />
-          <FooterCol title={t(m, "landing.foot.community")} links={withLabels(COMMUNITY_LINKS)} />
+          <FooterCol title={t(m, "landing.foot.use")} links={withLabels(USE_LINKS)} />
+          <div>
+            <h4 className="mb-3.5 font-mono text-[12px] uppercase tracking-[0.08em] text-faint">
+              {t(m, "landing.foot.about")}
+            </h4>
+            {withLabels(ABOUT_LINKS).map((link) => (
+              <a
+                key={link.label}
+                href={link.href}
+                className="mb-2.5 block text-sm text-ink-soft hover:text-ink"
+              >
+                {link.label}
+              </a>
+            ))}
+            {/* Silent upstream credit — Apache-2.0 attribution, non-promotional. */}
+            <p className="mt-3 text-[13px] leading-relaxed text-faint">
+              {t(m, "landing.foot.attributionLead")}{" "}
+              <a
+                href={GITHUB_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="underline decoration-line underline-offset-2 hover:text-ink"
+              >
+                DeepInterview
+              </a>{" "}
+              {t(m, "landing.foot.attributionTail")}
+            </p>
+          </div>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2.5 border-t border-line pt-[22px] text-[13px] text-faint">
           <span>{t(m, "landing.foot.copy")}</span>

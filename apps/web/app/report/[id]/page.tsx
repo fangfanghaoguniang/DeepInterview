@@ -45,7 +45,7 @@ export const dynamic = "force-dynamic";
  * - `error`   session errored (scoring failed — retriable) → honest notice.
  */
 type ReportState =
-  "ready" | "sample" | "empty" | "scoring" | "preparing" | "waiting" | "error";
+  "ready" | "sample" | "empty" | "scoring" | "preparing" | "waiting" | "error" | "unavailable";
 
 interface Loaded {
   state: ReportState;
@@ -63,34 +63,6 @@ interface Loaded {
 }
 
 /**
- * One-shot rescue for a persisted DEGRADED card. The agent writes degraded
- * scorecards (numbers-only / narrative-less) when the report-stage LLM calls
- * die on provider congestion — the `complete` status makes them terminal to a
- * poller, but the `?force=true` score endpoint re-runs the paid pipeline
- * server-side. A congestion day usually clears, so a page visit gets exactly
- * one free re-run attempt; a still-failing backend re-persists a degraded
- * card, which this never retries again (the flag is per server render).
- */
-async function rerunDegradedScore(id: string): Promise<boolean> {
-  try {
-    const res = await fetch(
-      `${serverEnv.agentApiUrl}/api/score?force=true`,
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ session_id: id }),
-        // Stage retries live server-side (attempts x timeout + backoffs);
-        // stay under the worker's own 600s budget but tolerate a slow rerun.
-        signal: AbortSignal.timeout(300_000),
-      },
-    );
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
-
-/**
  * Resolve the report state by reading the agent API
  * (`GET /api/session/{id}` → SessionView, which carries `scorecard` + `context`).
  * The sample preview is used ONLY on a true miss (agent down / unknown session /
@@ -99,7 +71,7 @@ async function rerunDegradedScore(id: string): Promise<boolean> {
  */
 async function load(id: string): Promise<Loaded> {
   const sample: Loaded = {
-    state: "sample",
+    state: id === "sample" ? "sample" : "unavailable",
     scorecard: SAMPLE_SCORECARD,
     degraded: false,
     context: null,
@@ -107,6 +79,7 @@ async function load(id: string): Promise<Loaded> {
     role: SAMPLE_INTERVIEW.role,
   };
 
+  if (id === "sample") return sample;
   try {
     const res = await fetch(
       `${serverEnv.agentApiUrl}/api/session/${encodeURIComponent(id)}`,
@@ -151,39 +124,7 @@ async function load(id: string): Promise<Loaded> {
         c.weaknesses.length === 0 &&
         c.model_answers.length === 0;
       const degraded = !hasScores || narrativeMissing;
-      if (degraded && view.status === "complete" && (await rerunDegradedScore(id))) {
-        // Force re-score ran to completion; re-read the (hopefully) repaired
-        // view. Any failure or unchanged shape falls back to the first parse.
-        try {
-          const retryRes = await fetch(
-            `${serverEnv.agentApiUrl}/api/session/${encodeURIComponent(id)}`,
-            { cache: "no-store", signal: AbortSignal.timeout(15_000) },
-          );
-          if (retryRes.ok) {
-            const retryParsed = SessionViewSchema.safeParse(await retryRes.json());
-            if (retryParsed.success) {
-              const rc = retryParsed.data.scorecard;
-              const rHasScores = (rc?.competency_scores?.length ?? 0) > 0;
-              const rNarrativeMissing =
-                !!rc &&
-                rc.strengths.length === 0 &&
-                rc.weaknesses.length === 0 &&
-                rc.model_answers.length === 0;
-              if (rc && rHasScores && !rNarrativeMissing) {
-                return {
-                  ...base,
-                  state: "ready",
-                  scorecard: rc,
-                  context: retryParsed.data.context ?? view.context,
-                  degraded: false,
-                };
-              }
-            }
-          }
-        } catch {
-          // fall through to the honest degraded render
-        }
-      }
+      // 页面读取和链接预取不触发重新评分，保留原报告和学习版本。
       return {
         ...base,
         state: "ready",
@@ -285,6 +226,15 @@ export default async function ReportPage({
   // No auth gate: OSS reads the report through the agent API, which needs no
   // sign-in. (Hosted/multi-tenant deployments add auth as a separate layer.)
   const loaded = await load(id);
+
+  if (loaded.state === "unavailable") {
+    return <StatusShell><Card className="max-w-md"><CardContent className="space-y-4 py-8">
+      <h1 className="font-serif text-2xl">报告暂不可读取</h1>
+      <p>会话不存在、服务不可用或返回数据不完整。未用示例报告代替本场结果。</p>
+      <Link href={`/report/${encodeURIComponent(id)}`} className={buttonClasses()}>重新读取</Link>
+      <Link href="/report/sample" className="ml-3 text-accent underline">查看示例</Link>
+    </CardContent></Card></StatusShell>;
+  }
 
   // Still scoring, or still prepping: auto-refresh until terminal. The poller
   // stops after a bounded wait and says so — an indefinite spinner tells the
@@ -418,6 +368,11 @@ export default async function ReportPage({
 
   // ready | sample → the full report.
   const { scorecard } = loaded;
+  const focus = loaded.context?.focus_source;
+  const answeredIds = new Set(loaded.context?.answers.filter((a) => a.transcript.trim()).map((a) => a.question_id));
+  const assessedFocus = focus && loaded.context?.plan.questions.some((q) =>
+    q.target_competency === focus.competency && answeredIds.has(q.id));
+  const currentFocus = assessedFocus ? scorecard.competency_scores.find((c) => c.competency === focus?.competency) : null;
   const { questionText, turns } = buildTranscript(loaded, await getServerLocale());
 
   return (
@@ -433,7 +388,7 @@ export default async function ReportPage({
       </header>
 
       <div className="mt-6">
-        <h1 className="font-serif text-4xl text-ink">{t(m, "report.title")}</h1>
+        <h1 className="font-serif text-3xl text-ink sm:text-4xl">{t(m, "report.title")}</h1>
         <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-muted">
           {loaded.role && loaded.company ? (
             <>
@@ -457,6 +412,21 @@ export default async function ReportPage({
           </span>
         </div>
       )}
+
+      {focus && <section className="mt-6 rounded-card border border-line bg-accent-soft p-5">
+        <h2 className="font-serif text-xl">本次重点：{focus.competency}</h2>
+        <p className="mt-2 text-sm text-muted">本场独立评分，题目不同，仅作进步参考；不会覆盖原报告或自动标记旧任务已掌握。</p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div><h3 className="font-medium">上次：{focus.baseline ? `${focus.baseline.score} 分` : "未考查"}</h3>
+            <p className="mt-1 text-sm">{focus.baseline?.evidence ?? "没有实际作答的评分依据，不记为零分。"}</p></div>
+          <div><h3 className="font-medium">本次：{currentFocus ? `${currentFocus.score} 分` : "未考查"}</h3>
+            <p className="mt-1 text-sm">{currentFocus?.evidence ?? "尚未形成该能力的有效评价，不计算进步幅度。"}</p></div>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-4 text-sm text-accent underline">
+          <Link href={`/report/${encodeURIComponent(focus.session_id)}`}>查看来源报告</Link>
+          <Link href={`/prep?session=${encodeURIComponent(focus.session_id)}&module=${encodeURIComponent(focus.module_id)}`}>返回原学习任务</Link>
+        </div>
+      </section>}
 
       {/* Bento: hero + top metrics */}
       <section className="mt-8">
@@ -536,11 +506,11 @@ export default async function ReportPage({
                 href={
                   loaded.state === "ready"
                     ? `/prep?session=${encodeURIComponent(id)}`
-                    : "/prep"
+                    : "/prep?preview=1"
                 }
                 className={buttonClasses()}
               >
-                {t(m, "report.ctaCoach")}
+                {loaded.state === "ready" ? "根据这份报告开始学习" : "查看学习示例"}
               </Link>
               <Link href="/setup" className={buttonClasses({ variant: "out" })}>
                 {t(m, "report.practiceAgain")}

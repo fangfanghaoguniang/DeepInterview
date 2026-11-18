@@ -13,9 +13,9 @@ import type { CompetencyScore } from "@deepinterview/shared";
 import { t } from "@/lib/i18n";
 import { useMessages } from "@/lib/i18n/client";
 
-const ACCENT = "#4338ca";
-const LINE = "#e7e3da";
-const MUTED = "#73737b";
+const ACCENT = "#4f5dd5";
+const LINE = "#e6e4df";
+const MUTED = "#6b6b66";
 
 /**
  * Calm radar of competency scores on a fixed 0-5 domain. Client island —
@@ -68,7 +68,7 @@ export function CompetencyChart({
               fontSize: 12,
               boxShadow: "0 12px 28px -18px rgba(20,20,30,0.25)",
             }}
-            labelStyle={{ color: "#17171a", fontWeight: 600 }}
+            labelStyle={{ color: "#1c1b1a", fontWeight: 600 }}
           />
         </RadarChart>
       </ResponsiveContainer>

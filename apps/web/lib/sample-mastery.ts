@@ -143,6 +143,7 @@ export interface Flashcard {
   front: string;
   back: string;
   competency: string;
+  source?: "interview" | "drill";
 }
 
 /**

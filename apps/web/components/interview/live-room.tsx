@@ -129,7 +129,7 @@ function Scaffold({
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(110% 80% at 50% -10%, rgba(67,56,202,0.06), transparent 60%)",
+            "radial-gradient(110% 80% at 50% -10%, rgba(79,93,213,0.06), transparent 60%)",
         }}
       />
 

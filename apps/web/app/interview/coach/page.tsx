@@ -1,15 +1,10 @@
 import { notFound } from "next/navigation";
-import {
-  isLiveKitConfigured,
-  isSupabaseConfigured,
-} from "@/lib/env";
-import { getUser } from "@/lib/supabase/server";
-import { createCoachToken } from "@/lib/livekit";
-import { loadSessionView } from "@/lib/session-read";
+import Link from "next/link";
+import { loadStudy, StudyApiError } from "@/lib/study-api";
 import { getPersona } from "@/lib/personas";
 import { t } from "@/lib/i18n";
 import { getServerMessages } from "@/lib/i18n/server";
-import { CoachRoom } from "@/components/interview/coach-room";
+import { CoachLaunch } from "@/components/interview/coach-launch";
 
 // Reads server-only config and the agent API per request; never prerender.
 export const dynamic = "force-dynamic";
@@ -36,7 +31,7 @@ export const dynamic = "force-dynamic";
 export default async function CoachPage({
   searchParams,
 }: {
-  searchParams: Promise<{ session?: string | string[] }>;
+  searchParams: Promise<{ session?: string | string[]; module?: string; version?: string }>;
 }) {
   const params = await searchParams;
   const sessionId =
@@ -47,31 +42,20 @@ export default async function CoachPage({
 
   const m = await getServerMessages();
 
-  const view = await loadSessionView(sessionId);
-  if (!view || view.session_id !== sessionId) notFound();
-
-  let identity = `coach-dev-${sessionId}`;
-  let name: string | undefined;
-
-  // No auth gate (OSS): anonymous visitors join with a session-scoped dev
-  // identity; signed-in hosted users keep their real one (same as interview).
-  if (isSupabaseConfigured()) {
-    const user = await getUser();
-    if (user) {
-      identity = user.id;
-      name =
-        (user.user_metadata?.name as string | undefined) ??
-        user.email ??
-        undefined;
+  let study;
+  try {
+    study = await loadStudy(sessionId);
+    if (params.version && params.version !== study.version) throw new Error("学习材料版本已变化，请从备考页重新进入。");
+    if (!study.targets.some((target) => target.cards.length)) throw new Error("练习材料尚未就绪，请返回备考页查看状态。");
+    if (params.module && !study.targets.some((target) => target.module.id === params.module && target.cards.length)) {
+      throw new Error("起始目标不存在或材料未就绪。其他目标可从备考页进入。");
     }
-  }
-
-  let token: string | null = null;
-  let url: string | null = null;
-  if (isLiveKitConfigured()) {
-    const minted = await createCoachToken({ sessionId, identity, name });
-    token = minted.token;
-    url = minted.url;
+  } catch (error) {
+    return <main className="mx-auto max-w-3xl px-6 py-12">
+      <h1 className="font-serif text-2xl">暂时无法开始教练练习</h1>
+      <p role="alert" className="my-4">{error instanceof Error ? error.message : "学习数据读取失败"}</p>
+      <Link href={`/prep?session=${encodeURIComponent(sessionId)}`} className="text-accent underline">返回当前学习任务</Link>
+    </main>;
   }
 
   // The coach shares the interviewer's avatar machinery but not its title —
@@ -79,6 +63,7 @@ export default async function CoachPage({
   const persona = { ...getPersona(undefined), name: t(m, "coach.title") };
 
   return (
-    <CoachRoom sessionId={sessionId} persona={persona} token={token} url={url} />
+    <CoachLaunch key={`${sessionId}:${study.version}:${params.module ?? "all"}`} study={study}
+      entryModule={params.module ?? null} persona={persona} />
   );
 }

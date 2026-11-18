@@ -1,7 +1,7 @@
 import * as React from "react";
 import { cn } from "@/lib/cn";
 
-type Variant = "ink" | "out" | "ghost";
+type Variant = "ink" | "brand" | "out" | "ghost";
 type Size = "sm" | "md" | "lg";
 
 const base =
@@ -12,6 +12,9 @@ const base =
 
 const variants: Record<Variant, string> = {
   ink: "bg-ink text-white border border-transparent hover:bg-ink-soft",
+  // 落地页主 CTA 专用（风格 A 定稿 brand-600 蓝）——内页主按钮仍走 ink，
+  // 语义上“开始面试”与“注册”的权重不同。
+  brand: "bg-accent-strong text-white border border-transparent hover:bg-accent-deep",
   out: "bg-transparent text-ink border border-line hover:border-ink hover:bg-panel",
   ghost:
     "bg-transparent text-ink-soft border border-transparent hover:text-ink hover:bg-accent-soft",

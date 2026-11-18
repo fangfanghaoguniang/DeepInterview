@@ -48,8 +48,8 @@ const FALLBACK_STYLE: Record<
   // Superhero — cool steel/indigo, calm and heroic.
   superhero: {
     gradient: "linear-gradient(165deg, #f3f5fb 0%, #eceef8 55%, #e8eaf4 100%)",
-    glow: "radial-gradient(120% 90% at 50% 18%, rgba(67,56,202,0.20), transparent 60%)",
-    accent: "#4338ca",
+    glow: "radial-gradient(120% 90% at 50% 18%, rgba(79,93,213,0.20), transparent 60%)",
+    accent: "#4f5dd5",
   },
   // Recruiter — neutral office grey-green, professional and warm.
   recruiter: {

@@ -2,6 +2,7 @@ import type { InterviewContext } from "./interview-context";
 
 export const SAMPLE_INTERVIEW_CONTEXT: InterviewContext = {
   session_id: "sess_01HZX9K2QWERTYUIOP",
+  focus_source: null,
   candidate: {
     name: "Mai Nguyen",
     headline: "Senior Backend Engineer · Distributed Systems",

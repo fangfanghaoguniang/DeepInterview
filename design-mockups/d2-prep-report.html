@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>设计稿 ③ 备考教练 / 面试报告 — 风格 A</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { theme: { extend: {
+  colors: { paper:'#FAFAF7', ink:'#1C1B1A', mist:'#6B6B66', line:'#E6E4DF',
+    brand:{50:'#EEF1FF',100:'#DDE3FF',500:'#4F5DD5',600:'#3D4AB8',700:'#313B93'},
+    success:'#1F7A5C', warn:'#B4690E', danger:'#B3372F' },
+  fontFamily:{ sans:['"PingFang SC"','"Hiragino Sans GB"','system-ui','sans-serif'] },
+  boxShadow:{ card:'0 1px 2px rgba(28,27,26,.05), 0 8px 24px rgba(28,27,26,.06)' }
+}}}</script>
+</head>
+<body class="bg-paper text-ink antialiased">
+
+<div class="max-w-6xl mx-auto px-6 pt-10"><p class="text-xs tracking-[.35em] text-mist">页面 /prep — 1100px 六区块（横幅→计划+问答→卡片+图谱→语音教练 CTA→课记录回显）</p></div>
+
+<!-- ① prep -->
+<section class="max-w-[1100px] mx-auto px-6 py-12">
+  <header class="flex items-center justify-between mb-7">
+    <p class="text-xs font-mono uppercase tracking-widest text-brand-600">DeepInterview</p>
+    <div class="flex items-center gap-3"><span class="text-xs border border-line rounded-full px-2.5 py-1 text-mist">预览（示例数据）</span><span class="text-xs border border-line rounded-full px-2.5 py-1 text-mist">中文 / EN</span></div>
+  </header>
+  <h1 class="text-3xl font-bold tracking-tight mb-2">学习计划</h1>
+  <p class="text-sm text-mist max-w-2xl leading-relaxed mb-7">你上一场面试暴露了几处短板。下面是补齐它们的路线——学习、刷题、开口推演，然后重回赛场。</p>
+
+  <!-- 闭环横幅 -->
+  <div class="rounded-2xl border border-brand-100 bg-brand-50/60 px-6 py-5 flex items-center justify-between mb-10">
+    <div class="flex items-start gap-3">
+      <span class="text-brand-600 text-lg mt-0.5">↻</span>
+      <div><h2 class="font-semibold">把短板带进下一场模拟</h2><p class="text-[13px] text-mist mt-0.5">最快的提升路径是先学再在压力下验证——直接开一场针对弱项的新面试。</p></div>
+    </div>
+    <button class="bg-brand-600 text-white rounded-lg px-5 py-2.5 text-sm font-medium shrink-0">开始新的模拟 →</button>
+  </div>
+
+  <!-- 学习计划 + 教练问答 -->
+  <div class="grid lg:grid-cols-[1.15fr_1fr] gap-8 mb-12">
+    <div>
+      <h2 class="font-semibold text-lg mb-1">学习计划</h2>
+      <p class="text-[12.5px] text-mist mb-4">基于短板 — 容量估算, 领导力 · 共 3 模块 · 约 55 分钟</p>
+      <div class="space-y-3">
+        <!-- 真实模块卡：序号圆圈 + 标题 + StatusChip（SM-2 四态色）+ rationale + 能力/分钟 + 两按钮 -->
+        <div class="bg-white border border-line rounded-xl shadow-card p-5 flex items-center gap-4">
+          <span class="w-7 h-7 shrink-0 rounded-full bg-brand-50 text-brand-600 grid place-items-center font-mono text-xs">1</span>
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-2 mb-1"><h3 class="font-semibold">容量估算：从 DAU 到瓶颈</h3><span class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-mono border" style="background:#fbf2e6;color:#9a6212;border-color:#efddc2"><span class="w-1.5 h-1.5 rounded-full" style="background:#9a6212"></span>薄弱</span></div>
+            <p class="text-[13px] text-mist leading-relaxed">先掌握读写放大与缓存命中率的算法，再回到你失分的那道短链题重做一遍。</p>
+            <p class="mt-1.5 text-[11px] font-mono text-mist/70">System Design · 🕐 25 分钟</p>
+          </div>
+          <div class="flex shrink-0 gap-2">
+            <button class="bg-brand-600 text-white rounded-lg px-3 py-1.5 text-xs font-medium">开始学习 →</button>
+            <button class="border border-line bg-white rounded-lg px-3 py-1.5 text-xs">在模拟中练习</button>
+          </div>
+        </div>
+        <div class="bg-white border border-line rounded-xl p-5 flex items-center gap-4">
+          <span class="w-7 h-7 shrink-0 rounded-full bg-brand-50 text-brand-600 grid place-items-center font-mono text-xs">2</span>
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-2 mb-1"><h3 class="font-semibold">故障恢复的决策框架</h3><span class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-mono border" style="background:#eef0fb;color:#4338ca;border-color:#d7d9f4"><span class="w-1.5 h-1.5 rounded-full" style="background:#4338ca"></span>学习中</span></div>
+            <p class="text-[13px] text-mist">降级、限流、回滚的取舍论证模板。</p>
+            <p class="mt-1.5 text-[11px] font-mono text-mist/70">System Design · 🕐 18 分钟</p>
+          </div>
+          <div class="flex shrink-0 gap-2">
+            <button class="bg-brand-600 text-white rounded-lg px-3 py-1.5 text-xs font-medium">开始学习 →</button>
+            <button class="border border-line bg-white rounded-lg px-3 py-1.5 text-xs">在模拟中练习</button>
+          </div>
+        </div>
+        <div class="bg-white border border-line rounded-xl p-5 flex items-center gap-4">
+          <span class="w-7 h-7 shrink-0 rounded-full bg-brand-50 text-brand-600 grid place-items-center font-mono text-xs">3</span>
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-2 mb-1"><h3 class="font-semibold">STAR 里的量化表达</h3><span class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-mono border" style="background:#f4f3ef;color:#73737b;border-color:#e7e3da"><span class="w-1.5 h-1.5 rounded-full" style="background:#73737b"></span>未开始</span></div>
+            <p class="text-[13px] text-mist">把“大幅优化”换成一组对比数字。</p>
+            <p class="mt-1.5 text-[11px] font-mono text-mist/70">Behavioral / STAR · 🕐 12 分钟</p>
+          </div>
+          <div class="flex shrink-0 gap-2">
+            <button class="bg-brand-600 text-white rounded-lg px-3 py-1.5 text-xs font-medium">开始学习 →</button>
+            <button class="border border-line bg-white rounded-lg px-3 py-1.5 text-xs">在模拟中练习</button>
+          </div>
+        </div>
+      </div>
+      <p class="text-[11px] text-mist mt-4">真实头部文案=「基于短板 — 容量估算, 领导力… · 共 3 模块 · 约 55 分钟」；上一稿的进度条/「3 张卡片」为虚构已删。若教练判定无短板，此处为诚实空态卡（✓ 无待补强项）。</p>
+    </div>
+    <div>
+      <h2 class="font-semibold text-lg mb-4">问你的教练</h2>
+      <div class="bg-white border border-line rounded-xl shadow-card flex flex-col" style="min-height:340px">
+        <div class="p-5 space-y-4 text-[13.5px] leading-relaxed flex-1">
+          <div><p class="text-[11px] text-mist mb-1">你</p><p class="border border-line rounded-lg px-3.5 py-2.5 text-ink/85">Kafka 的 exactly-once 到底怎么做到的？</p></div>
+          <div><p class="text-[11px] text-mist mb-1">教练 · 引用 2 个来源</p><p class="bg-brand-50/70 border border-brand-100 rounded-lg px-3.5 py-2.5">事务 + 幂等生产者两件套。关键在 <b>transactional.id</b> 的 fence 机制……<a class="text-brand-600 text-xs underline underline-offset-2 ml-1">[1] 你的知识文档</a><a class="text-brand-600 text-xs underline underline-offset-2 ml-1">[2]</a></p></div>
+          <p class="text-[12.5px] text-mist pt-1">试试问：「怎么组织一个 STAR 答案？」 · 「缓存命中率怎么估？」</p>
+        </div>
+        <div class="border-t border-line p-4 flex gap-2"><input class="flex-1 border border-line rounded-lg px-3.5 py-2.5 text-sm" placeholder="就问一个薄弱点…"><button class="bg-brand-600 text-white rounded-lg px-4 text-sm">发送</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 卡片 + 掌握度图谱 -->
+  <div class="grid lg:grid-cols-2 gap-8 mb-12">
+    <div>
+      <div class="flex items-center justify-between mb-4"><h2 class="font-semibold text-lg">记忆卡片</h2><span class="text-xs text-mist">5 张到期 · SM-2 调度</span></div>
+      <div class="bg-white border border-line rounded-xl shadow-card p-6 text-center">
+        <p class="text-[11px] text-mist mb-1">卡片 1 / 5 · 容量估算</p>
+        <p class="text-[12px] text-mist/80 mb-3">⇣ 从「学习计划」点「开始学习」后，此处会出现模块过滤横幅；点头部「5 张到期 · SM-2」可回全量牌库</p>
+        <p class="text-[15px] font-medium leading-relaxed mb-5">「DAU 2000 万、人均 200 条 feeds、缓存命中率 90%——回源 QPS 是多少？」</p>
+        <button class="border border-line rounded-lg px-5 py-2 text-sm text-mist hover:border-brand-500/50">点击翻转看答案</button>
+        <!-- 真实：SM-2 四档评分，每档附下次间隔预览；未翻转前禁用 -->
+        <div class="mt-5 pt-4 border-t border-line grid grid-cols-4 gap-2 text-sm">
+          <button class="border border-line rounded-lg py-2 text-ink/80"><span class="block">忘了</span><span class="block font-mono text-[10px] text-mist">10 分</span></button>
+          <button class="border border-line rounded-lg py-2 text-ink/80"><span class="block">困难</span><span class="block font-mono text-[10px] text-mist">1 天</span></button>
+          <button class="border border-line rounded-lg py-2 text-ink/80"><span class="block">良好</span><span class="block font-mono text-[10px] text-mist">4 天</span></button>
+          <button class="bg-ink text-white rounded-lg py-2"><span class="block">简单</span><span class="block font-mono text-[10px] opacity-70">9 天</span></button>
+        </div>
+        <p class="text-[11px] text-mist mt-3">真实为 SM-2 四档（忘了/困难/良好/简单）+ 每档下次间隔预览；上一稿三按钮已修正。未翻转前评分钮禁用。</p>
+      </div>
+    </div>
+    <div>
+      <div class="flex items-center justify-between mb-4"><h2 class="font-semibold text-lg">掌握度图谱</h2><span class="text-xs text-mist">React Flow 可交互画布：拖拽/缩放/点节点</span></div>
+      <div class="bg-white border border-line rounded-xl shadow-card p-6">
+        <div class="flex items-center gap-3 text-[13px]">
+          <div class="flex flex-col items-center"><span class="w-24 py-2 rounded-lg border-2 border-warn/50 bg-warn/5 text-warn font-medium text-center">容量估算</span><span class="text-[10px] text-mist mt-1.5">薄弱</span></div>
+          <span class="text-line">──▶</span>
+          <div class="flex flex-col items-center"><span class="w-24 py-2 rounded-lg font-medium text-center" style="background:#eef0fb;color:#4338ca;border:1px solid #d7d9f4">瓶颈定位</span><span class="text-[10px] text-mist mt-1.5">学习中</span></div>
+          <span class="text-line">──▶</span>
+          <div class="flex flex-col items-center"><span class="w-24 py-2 rounded-lg font-medium text-center" style="background:#e8f3ec;color:#15803d;border:1px solid #cfe6d6">缓存设计</span><span class="text-[10px] text-mist mt-1.5">已掌握</span></div>
+        </div>
+        <div class="flex items-center gap-3 text-[13px] mt-6 ml-12">
+          <div class="flex flex-col items-center"><span class="w-24 py-2 rounded-lg font-medium text-center" style="background:#eef0fb;color:#4338ca;border:1px solid #d7d9f4">读写放大</span><span class="text-[10px] text-mist mt-1.5">学习中</span></div>
+          <span class="text-line">──▶</span>
+          <div class="flex flex-col items-center"><span class="w-24 py-2 rounded-lg text-center" style="background:#f4f3ef;color:#73737b;border:1px solid #e7e3da">存储选型</span><span class="text-[10px] text-mist mt-1.5">未开始</span></div>
+        </div>
+        <p class="text-[11.5px] text-mist mt-6">颜色按生产色板（status-chip.tsx）：未开始灰 #f4f3ef · 学习中靛 #eef0fb · 薄弱琥珀 #fbf2e6 · 已掌握绿 #e8f3ec。上一稿「白=学习中、虚线未开始」为画错，已正。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 苏格拉底 CTA（真实为深色 ink 底白字卡；无真实 session 时按钮禁用并说明原因） -->
+  <div class="rounded-2xl bg-ink text-white shadow-card p-7 flex items-center justify-between gap-6">
+    <div>
+      <p class="text-[11px] font-mono uppercase tracking-widest text-white/60 mb-1.5">语音 · 苏格拉底模式</p>
+      <h2 class="font-semibold text-lg mb-1">开口推演，而不是被评分</h2>
+      <p class="text-[13px] text-white/65">教练不给你答案，用一连串引导问题直到你想通——和面试间同一套实时语音链路。</p>
+    </div>
+    <div class="text-right shrink-0">
+      <button class="border border-white/30 text-white/60 rounded-xl px-6 py-3.5 text-sm font-medium cursor-not-allowed" disabled>开始苏格拉底练习 →</button>
+      <p class="text-[11px] text-white/50 mt-2 max-w-[220px]">↑ 禁用态样例：预览页无真实 session 时 fail-closed（按钮置灰+原因说明）；有 session 时钮为白底，链 /interview/coach?session=。</p>
+    </div>
+  </div>
+
+  <!-- 教练课记录回显（真实第六区块：仅本轮真实对话过才出现） -->
+  <div class="mt-10">
+    <div class="h-px bg-line mb-6"></div>
+    <p class="text-xs font-mono uppercase tracking-widest text-mist mb-2">第六区块 · 上一场教练对话回显（CoachSessionReplay，仅有真实对话时渲染）</p>
+    <div class="bg-white border border-line rounded-xl shadow-card p-5 space-y-3 text-[13.5px] leading-relaxed">
+      <div><p class="text-[11px] text-mist mb-1">教练</p><p class="bg-brand-50/70 border border-brand-100 rounded-lg px-3.5 py-2.5">你说缓存命中率拍不准——那拍的时候你心里参照的是哪个系统？</p></div>
+      <div><p class="text-[11px] text-mist mb-1">你</p><p class="border border-line rounded-lg px-3.5 py-2.5 text-ink/85">参照的是上一家公司的 feeds 网关，大概 85%…</p></div>
+    </div>
+  </div>
+</section>
+
+<div class="max-w-6xl mx-auto px-6"><p class="text-xs tracking-[.35em] text-mist">页面 /report/[id] — 920px 单列（bento 总分 → 雷达+强弱项 → 语言卡+下一步 → 范文 → 逐字稿 → 页尾 CTA 卡）</p><div class="h-px bg-line mt-3"></div></div>
+
+<!-- ② report -->
+<section class="max-w-[920px] mx-auto px-6 py-12 pb-24">
+  <header class="flex items-center justify-between mb-7">
+    <p class="text-xs font-mono uppercase tracking-widest text-brand-600">DeepInterview</p>
+    <!-- 真实页眉右侧：无「导出 PDF」「再练一场」按钮；sample 预览态才有徽标，再练在页尾 CTA 卡 -->
+    <span class="text-xs border border-line rounded-full px-2.5 py-1 text-mist">预览数据</span>
+  </header>
+  <h1 class="text-3xl font-bold tracking-tight mb-1.5">你的面试报告</h1>
+  <p class="text-sm text-mist mb-2">后端高级工程师 · 字节跳动。综合来看结构清晰、实战经验扎实，但量化论证在追问下变薄。</p>
+  <p class="text-[11px] text-mist mb-8">↑ 真实页头=subline（岗位·公司）+ scorecard.summary 拼接，无日期/题数/时长行。degraded 时此处下方另有「部分报告」警示横幅。</p>
+
+  <!-- ScoreBento：真实为 hero（X.X/5 大数字）+ 2×2 指标（md:grid-cols-3，hero 1 列 + 2×2 占 2 列）；无百分环/目标线/历史对比 -->
+  <div class="grid grid-cols-3 gap-4 mb-4">
+    <div class="bg-white border border-line rounded-2xl shadow-card p-6 flex flex-col justify-between">
+      <p class="text-[11px] font-mono uppercase tracking-widest text-mist">综合分</p>
+      <p class="mt-4 font-serif text-[64px] leading-none font-semibold">4.3<span class="text-2xl text-mist font-normal">/5</span></p>
+      <p class="mt-3 text-sm text-mist">判定：已准备就绪</p>
+    </div>
+    <div class="col-span-2 grid grid-cols-2 gap-4">
+      <div class="bg-white border border-line rounded-2xl shadow-card p-5"><p class="text-[11px] font-mono uppercase tracking-widest text-mist mb-2">沟通表达</p><p class="text-3xl font-serif font-semibold">4.2</p><p class="text-xs text-mist mt-0.5">强 · /5</p><div class="h-1 bg-line/60 rounded-full mt-3"><div class="h-1 bg-brand-500 rounded-full" style="width:84%"></div></div></div>
+      <div class="bg-white border border-line rounded-2xl shadow-card p-5"><p class="text-[11px] font-mono uppercase tracking-widest text-mist mb-2">技术深度</p><p class="text-3xl font-serif font-semibold">4.5</p><p class="text-xs text-mist mt-0.5">强 · /5</p><div class="h-1 bg-line/60 rounded-full mt-3"><div class="h-1 bg-brand-500 rounded-full" style="width:90%"></div></div></div>
+      <div class="bg-white border border-line rounded-2xl shadow-card p-5"><p class="text-[11px] font-mono uppercase tracking-widest text-mist mb-2">STAR 结构</p><p class="text-3xl font-serif font-semibold">1.8</p><p class="text-xs text-mist mt-0.5">薄弱 · /5</p><div class="h-1 bg-line/60 rounded-full mt-3"><div class="h-1 bg-mist/50 rounded-full" style="width:36%"></div></div></div>
+      <div class="bg-white border border-line rounded-2xl shadow-card p-5"><p class="text-[11px] font-mono uppercase tracking-widest text-mist mb-2">填充词</p><p class="text-3xl font-serif font-semibold">14</p><p class="text-xs text-mist mt-0.5">本场累计（无进度条，无目标线）</p></div>
+    </div>
+  </div>
+  <p class="text-[11px] text-mist mb-10">标度更正：生产全部为 0–5 制（X.X/5 + 强/发展中/薄弱 level 徽标），上一稿的百分制/目标线/较上一场 +5 均为画饼已删；判定四档 ≥4.25 就绪 / ≥3.25 在路上 / ≥2 待打磨 / <2 早期。</p>
+
+  <!-- 真实布局：lg:grid-cols-5 — 雷达卡 2 列 + 强弱项双卡 3 列 -->
+  <div class="grid lg:grid-cols-5 gap-4 mb-4">
+    <div class="lg:col-span-2 bg-white border border-line rounded-2xl shadow-card p-5">
+      <h2 class="font-semibold text-sm mb-1">能力雷达</h2>
+      <p class="text-[11px] text-mist mb-3">固定 0–5 域，维度数随报告</p>
+      <svg viewBox="0 0 220 200" class="w-full">
+        <g stroke="#E6E4DF" fill="none"><polygon points="110,20 190,70 165,165 55,165 30,70"/><polygon points="110,56 158,86 143,136 77,136 62,86"/><polygon points="110,93 124,102 118,112 102,112 96,102"/><line x1="110" y1="110" x2="110" y2="20"/><line x1="110" y1="110" x2="190" y2="70"/><line x1="110" y1="110" x2="165" y2="165"/><line x1="110" y1="110" x2="55" y2="165"/><line x1="110" y1="110" x2="30" y2="70"/></g>
+        <polygon points="110,30 178,75 135,155 70,148 55,82" fill="#4F5DD5" fill-opacity="0.14" stroke="#4F5DD5" stroke-width="2"/>
+        <g fill="#4F5DD5"><circle cx="110" cy="30" r="2.5"/><circle cx="178" cy="75" r="2.5"/><circle cx="135" cy="155" r="2.5"/><circle cx="70" cy="148" r="2.5"/><circle cx="55" cy="82" r="2.5"/></g>
+        <g font-size="9" fill="#6B6B66" text-anchor="middle"><text x="110" y="12">沟通</text><text x="198" y="70">技术深度</text><text x="172" y="178">系统设计</text><text x="48" y="178">领导力</text><text x="22" y="70">STAR</text></g>
+      </svg>
+    </div>
+    <div class="lg:col-span-3 grid md:grid-cols-2 gap-4">
+      <div class="bg-white border border-line rounded-2xl shadow-card p-5">
+        <h3 class="font-semibold text-sm mb-3">优势</h3>
+        <ul class="text-[13px] space-y-2 text-ink/85 leading-relaxed">
+          <li class="flex gap-2.5"><span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-success shrink-0"></span>事故复盘的取舍论证真实可信</li>
+          <li class="flex gap-2.5"><span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-success shrink-0"></span>消息队列与一致性的一手实战经验</li>
+        </ul>
+      </div>
+      <div class="bg-white border border-line rounded-2xl shadow-card p-5">
+        <h3 class="font-semibold text-sm mb-3">待成长</h3>
+        <ul class="text-[13px] space-y-2 text-ink/85 leading-relaxed">
+          <li class="flex gap-2.5"><span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-brand-500 shrink-0"></span>STAR 结构经常丢失情境与任务</li>
+          <li class="flex gap-2.5"><span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-brand-500 shrink-0"></span>容量与故障模式推理偏薄</li>
+        </ul>
+        <div class="mt-3 rounded-lg border border-line bg-brand-50/60 px-3 py-2.5">
+          <div class="flex flex-wrap gap-1.5 mb-1.5"><span class="text-[11px] bg-brand-100 text-brand-700 rounded-md px-2 py-0.5">容量估算</span><span class="text-[11px] bg-brand-100 text-brand-700 rounded-md px-2 py-0.5">领导力</span><span class="text-[11px] bg-brand-100 text-brand-700 rounded-md px-2 py-0.5">系统设计</span></div>
+          <p class="text-[11px] text-ink/70 leading-relaxed">这些弱项将直通备考教练，自动编织进你的学习计划。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 真实：语言卡（流利/清晰/填充词三 Stat + 码切换/发音注两块）与 next_steps 编号清单卡并排 md:grid-cols-2 -->
+  <div class="grid md:grid-cols-2 gap-4 mb-4">
+    <div class="bg-white border border-line rounded-2xl shadow-card p-5">
+      <h2 class="font-semibold text-sm mb-1">语言与表达</h2>
+      <p class="text-[11px] text-mist mb-3">整体表达流畅，中英切换自然，部分术语发音可再准。</p>
+      <div class="grid grid-cols-3 gap-3 text-center">
+        <div><p class="text-[10px] font-mono uppercase tracking-widest text-mist/70">流利度</p><p class="text-xl font-serif font-semibold mt-1">4.1<span class="text-xs text-mist font-sans">/5</span></p></div>
+        <div><p class="text-[10px] font-mono uppercase tracking-widest text-mist/70">清晰度</p><p class="text-xl font-serif font-semibold mt-1">3.8<span class="text-xs text-mist font-sans">/5</span></p></div>
+        <div><p class="text-[10px] font-mono uppercase tracking-widest text-mist/70">填充词</p><p class="text-xl font-serif font-semibold mt-1">14</p></div>
+      </div>
+      <div class="mt-4 space-y-3 text-[12.5px]">
+        <div><p class="text-[10px] font-mono uppercase tracking-widest text-mist/70">中英切换</p><p class="text-ink/80 mt-0.5 leading-relaxed">高频术语处自然切换，未影响句内连贯。</p></div>
+        <div><p class="text-[10px] font-mono uppercase tracking-widest text-mist/70">发音</p><p class="text-ink/80 mt-0.5 leading-relaxed">「idempotent」重音位置可再准。</p></div>
+      </div>
+      <p class="text-[11px] text-mist mt-3">注：上一稿的「发音 79」「切换 2 次」为虚构百分制，生产为定性注记。</p>
+    </div>
+    <div class="bg-white border border-line rounded-2xl shadow-card p-5">
+      <h2 class="font-semibold text-sm mb-1">下一步</h2>
+      <p class="text-[11px] text-mist mb-4">把报告转化为具体行动：</p>
+      <ol class="space-y-3">
+        <li class="flex gap-3 text-sm text-ink/85 leading-relaxed"><span class="mt-0.5 w-5 h-5 shrink-0 rounded-full bg-brand-50 text-brand-600 grid place-items-center font-mono text-[11px]">1</span><span>下次面试前用「容量估算四步法」重做短链题，把每个假设换算成数字。</span></li>
+        <li class="flex gap-3 text-sm text-ink/85 leading-relaxed"><span class="mt-0.5 w-5 h-5 shrink-0 rounded-full bg-brand-50 text-brand-600 grid place-items-center font-mono text-[11px]">2</span><span>行为面答案全部重写为 STAR 五段式，每段不超过 90 秒。</span></li>
+        <li class="flex gap-3 text-sm text-ink/85 leading-relaxed"><span class="mt-0.5 w-5 h-5 shrink-0 rounded-full bg-brand-50 text-brand-600 grid place-items-center font-mono text-[11px]">3</span><span>开一场针对「领导力」弱项的新模拟验证提分。</span></li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- 范文（ModelAnswers 真实结构：题面 + 左竖线范文；无每题分数、无对比句） -->
+  <div class="bg-white border border-line rounded-2xl shadow-card p-6 mb-4">
+    <p class="text-[11px] font-mono uppercase tracking-widest text-mist mb-1">教练指导</p>
+    <h2 class="font-semibold text-lg mb-4">更强的答法</h2>
+    <div class="space-y-3">
+      <div class="rounded-xl border border-line bg-paper/70 p-4">
+        <p class="text-[13px] font-medium leading-snug mb-2">设计千万级日活短链服务</p>
+        <p class="border-l-2 border-brand-500/40 pl-3 text-sm leading-relaxed text-ink/75">头部候选人会先给三组数字：日写 2 亿条 → 平均 2.3k QPS、峰值 ×5；读:写 = 20:1 → 缓存层必须有；再按瓶颈倒推存储选型，最后主动说“如果 QPS 翻倍，先扩展的是发号器的批预热”。</p>
+      </div>
+      <div class="rounded-xl border border-line bg-paper/70 p-4">
+        <p class="text-[13px] font-medium leading-snug mb-2">讲一个你主导的线上事故</p>
+        <p class="border-l-2 border-brand-500/40 pl-3 text-sm leading-relaxed text-ink/75">用 STAR 五段：影响面数字 → 你的决策与取舍 → 验证手段 → 复盘沉淀……</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 逐字稿（TranscriptSection 真实：▶ 纯视觉+「回放即将开放」tooltip，Q 编号+题目+答案正文；无分数 chip） -->
+  <div class="bg-white border border-line rounded-2xl shadow-card divide-y divide-line mb-4">
+    <div class="px-5 py-4 flex items-start gap-4"><button class="mt-0.5 w-7 h-7 shrink-0 rounded-full border border-line grid place-items-center text-xs text-brand-600" title="回放即将开放">▶</button><div class="flex-1"><p class="text-[13.5px] font-medium mb-1.5">Q1 · 自我介绍与项目动机</p><p class="text-[13px] text-ink/75 leading-relaxed">我在支付与 feeds 两个高并发域各待过三年……</p></div></div>
+    <div class="px-5 py-4 flex items-start gap-4"><button class="mt-0.5 w-7 h-7 shrink-0 rounded-full border border-line grid place-items-center text-xs text-brand-600" title="回放即将开放">▶</button><div class="flex-1"><p class="text-[13.5px] font-medium mb-1.5">Q3 · 短链系统设计</p><p class="text-[13px] text-ink/75 leading-relaxed">选型上我会用雪花号……（此题容量估算无数字，已进范文）</p></div></div>
+    <div class="px-5 py-4 flex items-start gap-4 opacity-50"><span class="mt-0.5 w-7 h-7 shrink-0"></span><div class="flex-1"><p class="text-[13.5px] font-medium">Q9 · 反问环节</p><p class="text-[13px] text-mist">本场未触达</p></div></div>
+  </div>
+
+  <!-- 页尾 CTA 卡（真实：brand-soft 底卡，教练我 + 再练一场两钮） -->
+  <div class="rounded-2xl border border-line bg-brand-50/60 p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div>
+      <h2 class="font-serif text-xl font-semibold mb-1">把弱项变成下次得分的地方</h2>
+      <p class="text-sm text-mist">教练会基于这份报告直接展开推演，而不是从头再来。</p>
+    </div>
+    <div class="flex gap-3 shrink-0">
+      <button class="bg-brand-600 text-white rounded-lg px-5 py-2.5 text-sm font-medium">教练我</button>
+      <button class="border border-line bg-white rounded-lg px-5 py-2.5 text-sm font-medium">再练一场</button>
+    </div>
+  </div>
+
+  <!-- 页尾状态带：七态代表性覆盖（同壳不逐一出图） -->
+  <div class="mt-12 border-t border-line pt-6">
+    <p class="text-xs font-mono uppercase tracking-widest text-mist mb-3">状态带 · 报告页七态</p>
+    <p class="text-[11px] text-mist leading-relaxed">全部为 920px 页眉 + 居中 md 卡同壳：<b>scoring（评分中）</b>与 <b>preparing（准备中）</b>=spinner 卡 + 有界轮询，超时后诚实报停；<b>waiting（未开面）</b>=「参加面试」+「重新开始」；<b>empty（无作答）</b>=诚实空态非零分，「再练一场」+「回首页」；<b>error（评分失败）</b>=可重试，「再查一次」+「再练一场」；<b>sample（预览）</b>=本稿即此态，页眉带徽标；<b>ready</b>=真报告，degraded 时另加「部分报告」横幅（服务端会 force 重评一次）。</p>
+  </div>
+</section>
+
+<div class="fixed bottom-5 right-5 bg-ink text-white text-xs rounded-full px-4 py-2 opacity-80">设计稿 ③ · 待确认</div>
+</body>
+</html>

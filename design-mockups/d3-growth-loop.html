@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>成长闭环 V2 · 全部目标教练 | DeepInterview</title>
+  <style>
+    :root {
+      --paper:#fafaf7; --panel:#fff; --ink:#1c1b1a; --muted:#6b6b66; --line:#e6e4df;
+      --accent:#4f5dd5; --strong:#3d4ab8; --soft:#eef1ff; --mid:#dde3ff;
+      --ok:#1f7a5c; --ok-soft:#e8f3ec; --warn:#b4690e; --warn-soft:#fbf2e6;
+      --danger:#b3372f; --danger-soft:#fff1ef; --radius:14px;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--paper); color:var(--ink); font:14px/1.7 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB",sans-serif; }
+    button,input,textarea,select { font:inherit; }
+    button,a,input,textarea,select,summary { -webkit-tap-highlight-color:transparent; }
+    button { cursor:pointer; }
+    button:disabled { cursor:not-allowed; opacity:.5; }
+    button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,summary:focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
+    a { color:var(--strong); text-underline-offset:4px; }
+    h1,h2,h3,p { margin:0; }
+    h1 { font-size:30px; font-weight:600; letter-spacing:-.03em; line-height:1.4; }
+    h2 { font-size:19px; font-weight:600; line-height:1.5; }
+    h3 { font-size:16px; font-weight:600; }
+    small,.small { font-size:12px; }
+    .muted { color:var(--muted); }
+    .eyebrow { color:var(--strong); font:11px/1.5 ui-monospace,monospace; letter-spacing:.13em; }
+    .review-bar { background:#262524; color:#fff; padding:13px 24px; }
+    .review-inner { max-width:1100px; margin:auto; display:flex; gap:16px; align-items:center; justify-content:space-between; }
+    .review-bar p { font-size:12px; color:#d3d1cc; }
+    .review-bar strong { color:#fff; font-weight:550; }
+    .review-bar button { color:#fff; border:1px solid #66635e; background:transparent; padding:5px 12px; border-radius:7px; white-space:nowrap; }
+    .toolbar { background:var(--panel); border-bottom:1px solid var(--line); padding:14px 24px; }
+    .toolbar-inner { max-width:1100px; margin:auto; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; }
+    .steps { display:flex; flex-wrap:wrap; gap:6px; }
+    .steps button { border:0; background:transparent; color:var(--muted); border-radius:7px; padding:7px 11px; }
+    .steps button[aria-current="page"] { color:var(--strong); background:var(--soft); }
+    .scenario { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); }
+    select { border:1px solid var(--line); border-radius:7px; padding:6px 8px; background:#fff; color:var(--ink); max-width:100%; }
+    main { width:min(1100px,calc(100% - 48px)); margin:30px auto 48px; outline:none; }
+    main.narrow { max-width:920px; }
+    main.setup { max-width:720px; }
+    .brand-row,.row { display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; }
+    .brand-row { margin-bottom:26px; }
+    .tag { display:inline-flex; align-items:center; border:1px solid var(--line); border-radius:6px; padding:3px 8px; font-size:11px; line-height:1.5; }
+    .tag.ready { color:var(--ok); background:var(--ok-soft); border-color:#cfe6d6; }
+    .tag.pending { color:var(--warn); background:var(--warn-soft); border-color:#efddc2; }
+    .tag.failed { color:var(--danger); background:var(--danger-soft); border-color:#f1cec9; }
+    .tag.accent { background:var(--soft); color:var(--strong); border-color:var(--mid); }
+    .intro { margin:8px 0 24px; color:var(--muted); max-width:710px; }
+    .panel { background:#fff; border:1px solid var(--line); border-radius:var(--radius); padding:22px; }
+    .notice { border:1px solid var(--mid); border-radius:var(--radius); background:var(--soft); padding:18px 22px; }
+    .notice.success { background:var(--ok-soft); border-color:#cfe6d6; }
+    .notice.warning { background:var(--warn-soft); border-color:#efddc2; }
+    .notice.error { background:var(--danger-soft); border-color:#f1cec9; }
+    .stack { display:grid; gap:16px; }
+    .section { margin-top:28px; }
+    .section-head { margin-bottom:14px; }
+    .split { display:grid; grid-template-columns:minmax(0,1.5fr) minmax(260px,1fr); gap:24px; align-items:start; }
+    .two { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+    .actions { display:flex; flex-wrap:wrap; align-items:center; gap:9px; margin-top:18px; }
+    .btn { display:inline-flex; align-items:center; justify-content:center; gap:7px; border:1px solid var(--line); border-radius:9px; padding:9px 14px; color:var(--ink); background:#fff; text-decoration:none; font-size:13px; line-height:1.5; }
+    .btn:hover:not(:disabled) { border-color:var(--accent); }
+    .btn.primary { color:#fff; background:var(--strong); border-color:var(--strong); }
+    .btn.green { color:#fff; background:var(--ok); border-color:var(--ok); }
+    .btn.link { padding:6px 0; background:transparent; border-color:transparent; color:var(--strong); }
+    .task { position:relative; padding-left:58px; }
+    .number { position:absolute; top:23px; left:20px; display:grid; place-items:center; width:25px; height:25px; background:var(--soft); border-radius:50%; color:var(--strong); font:12px ui-monospace,monospace; }
+    .task .reason { margin-top:10px; color:var(--muted); font-size:13px; }
+    .task .reason b { font-weight:500; color:var(--ink); }
+    .task .material { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:13px; font-size:12px; }
+    .task.active { border-color:var(--accent); box-shadow:0 0 0 2px var(--soft); }
+    .task .actions .primary { width:100%; }
+    .task .actions .secondary { flex:1; }
+    .feedback-line { border-top:1px solid var(--line); margin-top:14px; padding-top:12px; font-size:12px; color:var(--muted); }
+    .feedback-line p + p { margin-top:6px; }
+    .placeholder { border:1px dashed var(--line); background:#f5f4ef; padding:16px; border-radius:10px; color:var(--muted); font-size:13px; }
+    .chat-bubble { background:var(--soft); border:1px solid var(--mid); padding:13px; border-radius:10px; margin:8px 0 15px; }
+    .divider { border:0; border-top:1px solid var(--line); margin:20px 0; }
+    .card-shell { max-width:790px; margin:auto; }
+    .flashcard { text-align:center; padding:28px; min-height:260px; display:flex; flex-direction:column; justify-content:center; align-items:center; }
+    .flashcard .question { font-size:19px; line-height:1.8; max-width:610px; margin:22px 0; }
+    .flashcard .answer { max-width:620px; text-align:left; font-size:15px; line-height:1.9; margin:20px 0; white-space:pre-line; }
+    .ratings { display:grid; grid-template-columns:repeat(4,1fr); gap:9px; border-top:1px solid var(--line); padding-top:18px; margin-top:18px; width:100%; }
+    .ratings button { padding:10px 6px; }
+    .card-nav { width:100%; margin-top:18px; }
+    .goal-list { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-top:16px; }
+    .goal-item { border:1px solid var(--line); border-radius:10px; padding:14px; background:#fff; }
+    .goal-item.current { border-color:var(--ok); background:var(--ok-soft); }
+    .goal-item p { margin:7px 0; font-size:12px; color:var(--muted); }
+    .coach-summary { scroll-margin-top:20px; }
+    @media(max-width:600px) { .goal-list { grid-template-columns:1fr; } }
+    .check { display:grid; place-items:center; width:44px; height:44px; border-radius:50%; background:var(--ok-soft); color:var(--ok); font-size:23px; margin-bottom:16px; }
+    .coach-banner { background:var(--ink); color:#fff; border-radius:var(--radius); padding:24px; }
+    .coach-banner p { color:#cfcdc6; font-size:13px; margin-top:5px; }
+    .coach-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:18px; }
+    .stage { min-height:345px; background:#242825; color:#fff; border-radius:var(--radius); display:flex; flex-direction:column; justify-content:center; align-items:center; padding:25px; }
+    .stage p { color:#c5cfc8; font-size:12px; }
+    .avatar { width:112px; height:132px; margin:18px 0; }
+    .transcript { min-height:345px; max-height:450px; overflow-y:auto; }
+    .utterance { margin-top:13px; }
+    .utterance p { font-size:13px; padding:12px; background:var(--ok-soft); border-radius:9px; }
+    .utterance.user p { background:#f5f4ef; }
+    .field label { display:block; font-weight:500; margin-bottom:8px; }
+    .field input:not([type="checkbox"]),.field textarea { width:100%; border:1px solid var(--line); border-radius:9px; background:#fff; padding:11px 12px; color:var(--ink); }
+    .field textarea { resize:vertical; min-height:90px; }
+    .field .small { display:block; margin-top:6px; }
+    .language-options { display:flex; gap:8px; margin:12px 0; }
+    .language-options button[aria-pressed="true"] { background:var(--soft); border-color:var(--accent); color:var(--strong); }
+    .score { font:52px/1.3 Georgia,serif; margin:12px 0; }
+    .score small { font:15px -apple-system,sans-serif; color:var(--muted); }
+    .bullets { margin:10px 0 0; padding-left:20px; color:var(--muted); }
+    .bullets li + li { margin-top:9px; }
+    .empty { padding:42px 24px; text-align:center; }
+    .empty .actions { justify-content:center; }
+    .source { max-width:1100px; width:calc(100% - 48px); margin:0 auto 35px; font-size:12px; color:var(--muted); }
+    .source summary { cursor:pointer; }
+    .source code { overflow-wrap:anywhere; color:var(--strong); font-size:11px; }
+    .source p { margin-top:9px; }
+    .prototype-path { overflow-wrap:anywhere; margin:12px 0; font:11px/1.6 ui-monospace,monospace; color:var(--muted); }
+    .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); max-width:calc(100% - 32px); background:var(--ink); color:#fff; padding:12px 20px; border-radius:9px; box-shadow:0 8px 30px #0002; z-index:5; font-size:13px; }
+    [hidden] { display:none !important; }
+    @media(max-width:800px) { .split,.coach-grid { grid-template-columns:1fr; } .split > aside { order:2; } .toolbar-inner { align-items:flex-start; } }
+    @media(max-width:540px) {
+      main { width:calc(100% - 28px); margin-top:22px; } .review-bar,.toolbar { padding:12px 14px; }
+      .review-inner { align-items:flex-start; gap:10px; } .review-bar p { font-size:11px; }
+      .steps { gap:3px; } .steps button { padding:6px 8px; font-size:12px; }
+      .two { grid-template-columns:1fr; } h1 { font-size:26px; } .panel { padding:18px; }
+      .task { padding-left:49px; } .number { left:15px; top:20px; }
+      .task .actions .secondary { flex-basis:100%; } .flashcard { padding:22px 16px; }
+      .flashcard .question { font-size:17px; } .actions > .btn { max-width:100%; }
+      .source { width:calc(100% - 28px); } .stage { min-height:250px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="review-bar">
+    <div class="review-inner">
+      <div><strong>成长闭环 V2 · 全部目标教练 / 卡片自由翻页</strong><p>全部为虚构演示数据；不连接真实会话、不调用模型、不访问麦克风。新增交互待确认。</p></div>
+      <button type="button" id="reset">重置演示</button>
+    </div>
+  </div>
+  <div class="toolbar">
+    <div class="toolbar-inner">
+      <nav class="steps" aria-label="样张页面切换">
+        <button type="button" data-page="report">01 原报告</button>
+        <button type="button" data-page="prep">02 学习与卡片</button>
+        <button type="button" data-page="coach">03 教练练习</button>
+        <button type="button" data-page="setup">04 再面试设置</button>
+        <button type="button" data-page="result">05 新报告</button>
+      </nav>
+      <label class="scenario">演示状态 <select id="scenario" aria-label="切换演示状态"></select></label>
+    </div>
+  </div>
+  <noscript><p class="panel">此离线样张需要启用 JavaScript 才能演示页面切换与卡片练习。不会发送网络请求。</p></noscript>
+  <main id="app" tabindex="-1"></main>
+  <details class="source">
+    <summary>审阅说明：与生产页面的对应关系、哪些地方会改</summary>
+    <p>本稿只演示本次新增或调整的局部，不是整页删减稿。原报告的图表、参考答案、逐字稿和设置页设备检测保持原功能；所有分数、题目与反馈均为样张数据。</p>
+    <p>报告入口与来源对比：<code>apps/web/app/report/[id]/page.tsx</code>、<code>components/report/strengths-gaps.tsx</code>。调整成长建议来源和备考入口，新报告增加来源与目标能力对比。</p>
+    <p>改造幅度最大的是学习任务：<code>components/prep/study-plan.tsx</code>、<code>components/prep/flashcards.tsx</code>。保留计划与知识问答双栏，任务按钮移至卡片底部，材料状态与教练反馈分开显示。</p>
+    <p>教练页：<code>components/prep/socratic-cta.tsx</code>、<code>components/interview/coach-room.tsx</code>。保留绿色教练间和手动判停，默认纳入本报告全部目标；任务入口只决定从哪里开始，支持中途换项、继续深入和分目标反馈。</p>
+    <p>设置页：<code>components/setup/setup-form.tsx</code>。保留简历 → JD → 公司 → 语言 → 人设 → 设备检查的顺序，语言沿用当前分段按钮，增加重点确认和原资料复用。</p>
+    <p>布局备选：若任务卡三个入口显得拥挤，可把“再面试，重点练此项”改成任务底部的文字链接；功能与跳转不变。本稿先展示三个入口都可见的版本。</p>
+    <p>演示范围：卡片上一张/下一张、翻面与四档自评；教练自动带上全部目标、基础追问后转到下一项、手动切换与深入、提前结束后的分目标反馈。自由浏览和跳过目标都不算练习完成。</p>
+    <p>教练样张用每项两次预设回答演示自动转场，另有一次深入回答；真实教练的转场将根据对话决定，不以固定轮数判定掌握。材料失败重试、设置取消重点与新报告对比沿用原样张。异步结果用本地计时器模拟，不调用真实模型或语音。</p>
+  </details>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <script>
+    "use strict";
+    // 离线样张的状态完全隔离，不读取生产会话或生产 localStorage。
+    const STORAGE_KEY = "deepinterview:mockup:growth-loop:v1";
+    const SESSION_ID = "mock-interview-01";
+    const modules = [
+      {
+        id:"capacity", title:"容量估算：把假设说成数字", competency:"容量估算", score:"2.5",
+        reason:"这次面试对请求量和存储量的估算不够具体。", action:"先口述一次完整估算，再解释峰值假设。",
+        cards:[
+          {id:"capacity-1", source:"面试复盘题", q:"日活 2,000 万，人均每天读取 20 次。平均读 QPS 是多少？为什么不能据此直接确定容量？", a:"先算总请求：2,000 万 × 20 = 4 亿次/天。\n平均 QPS 约为 4 亿 ÷ 86,400 ≈ 4,630。\n容量还要考虑峰值、热点、重试与冗余；峰值系数需要结合流量曲线验证，不能只报一个平均值。"},
+          {id:"capacity-2", source:"面试复盘题", q:"缓存命中率从 90% 降到 80%，在总读流量不变时，数据库承受的流量会怎样变化？", a:"回源比例从 10% 增至 20%，数据库流量翻倍。\n继续说明：观察热点分布、缓存失效时间与数据库余量；用限流和分批预热保护回源链路，并验证峰值条件。"}
+        ],
+        opening:"我们先看容量估算。为什么平均请求量不能直接作为容量上限？",
+        followupReply:"没有曲线时，我会明确说明峰值系数是待验证假设，再通过压测和上线监控校准，而不是把假设说成测量结果。",
+        deepenPrompt:"如果峰值总量估对了，但流量集中在少数热点，你还会检查什么？",
+        deepenReply:"我会检查热点分布、单分片与单实例余量，按局部最坏情况压测，不能只看集群总容量。",
+        reply:"因为会有流量高峰。我会先看流量曲线，再给出峰值系数和冗余。",
+        followup:"如果暂时没有流量曲线，你会如何说明这个系数的依据，又准备怎样验证它？",
+        feedback:"已经能区分平均值与峰值；峰值系数还需要补上可验证的依据。"
+      },
+      {
+        id:"recovery", title:"故障恢复：说明回滚的代价", competency:"故障恢复", score:"3.0",
+        reason:"回滚步骤清楚，但没有说明数据兼容与恢复验证。", action:"补齐回滚前检查、数据修复和恢复确认三步。",
+        cards:[
+          {id:"recovery-1", source:"针对性练习题", q:"新版本写入了旧版本不认识的数据结构，还能直接回滚吗？", a:"不能只回滚应用。先判断数据是否向后兼容，必要时停止新格式写入，并选择兼容补丁或数据迁移，再验证旧版本的读写链路。"},
+          {id:"recovery-2", source:"针对性练习题", q:"接口错误率恢复正常后，还需要检查什么？", a:"检查积压任务、数据一致性、支付或订单等关键业务结果，确认延迟与吞吐恢复，不能只以错误率下降判定恢复完成。"},
+          {id:"recovery-3", source:"针对性练习题", q:"怎样判断应该回滚，还是继续修复？", a:"比较故障影响面、修复和回滚所需时间、数据兼容风险及回退验证成本；明确决策人和停止条件，避免无期限在线试错。"}
+        ],
+        opening:"我们看故障恢复。如果新版本已写入旧格式不兼容的数据，你还会立即回滚吗？",
+        followupReply:"我会核对订单和支付结果、积压任务及数据一致性，再结合延迟、吞吐确认业务恢复。",
+        deepenPrompt:"如果错误率正常，但积压任务还在增加，你会怎样安排恢复顺序？",
+        deepenReply:"先控制新增压力，再确认消费者瓶颈并分批恢复积压；每一步都观察延迟和关键业务结果，避免二次冲击。",
+        reply:"不会。我会先确认兼容性，停止新的错误写入，再选择迁移或兼容补丁。",
+        followup:"你会用哪些业务指标证明恢复完成，而不仅是错误率下降？",
+        feedback:"能识别数据兼容风险，建议进一步补充关键业务恢复指标。"
+      },
+      {
+        id:"leadership", title:"项目推进：把个人影响讲具体", competency:"跨团队协作", score:"3.5",
+        reason:"协作过程完整，但没有说清你本人改变了哪一个关键决策。", action:"用一个具体分歧，讲清你的判断、行动和可验证结果。",
+        cards:[
+          {id:"leadership-1", source:"针对性练习题", q:"讲一个跨团队分歧：你提出了什么不同判断？", a:"先交代共同目标和分歧，再说明你的证据与选择。区分团队集体行动和你个人推动的关键变化，不只描述开了多少次会。"},
+          {id:"leadership-2", source:"针对性练习题", q:"如何证明协调工作产生了效果？", a:"给出前后的可比事实，例如交付周期、事故数量或决策等待时间。说明其他影响因素，避免将所有改善归因于自己。"},
+          {id:"leadership-3", source:"针对性练习题", q:"如果对方仍然不同意，你会怎样推进？", a:"确认共同目标，缩小争议到可验证假设；提出有边界的试验，约定指标、风险与决策时点，必要时通过清晰机制升级决策。"}
+        ],
+        opening:"我们看跨团队协作。请挑一个关键决策，说明你的证据改变了什么。",
+        followupReply:"原计划会等待两个团队分别评估。我推动联合试验，在约定时间得到同一组数据，决策等待从两周缩短到三天；这些数字是样张示例。",
+        deepenPrompt:"如果试验结果仍不能让双方达成一致，你会怎样推进？",
+        deepenReply:"我会拆开事实分歧和目标分歧，明确剩余风险与决策权，约定下一次验证或升级决策的时间，避免继续无期限争论。",
+        reply:"我把双方争论转成一次有明确指标的小范围试验，并约定了决策时间。",
+        followup:"如果没有你的推动，原计划会怎样？有什么事实可以支持这个差别？",
+        feedback:"能讲清个人行动，还需要用结果对照说明个人影响。"
+      }
+    ];
+    const $ = (selector) => document.querySelector(selector);
+    const escape = (value) => String(value).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+    const byId = (id) => modules.find((m) => m.id === id);
+    const initialForm = {cv:"示例候选人：后端工程师，负责交易与消息系统的设计、容量规划及稳定性治理。此处模拟沿用上一场简历原文。", jd:"高级后端工程师：负责核心服务架构与稳定性，要求具备系统设计、容量规划及跨团队协作经验。", company:"示例科技"};
+    const state = {
+      scenario:"ready", material:Object.fromEntries(modules.map((m) => [m.id,"ready"])),
+      feedback:{}, rated:{}, flipped:false, cardId:null, cardScope:null, browseCompleted:false,
+      coach:null, coachRun:0, lastCoach:null, focus:true, language:"zh", mixed:false,
+      form:{...initialForm},
+      timers:[], revision:0, newInterview:null
+    };
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+      if (saved && typeof saved === "object" && !Array.isArray(saved)) {
+        for (const m of modules) for (const c of m.cards) {
+          if (["忘了","困难","记住","容易"].includes(saved[c.id])) state.rated[c.id] = saved[c.id];
+        }
+      }
+    } catch { /* 浏览器禁用本地存储时，样张仍能在当前页面完成演示。 */ }
+    function saveRatings() {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.rated)); }
+      catch { toast("浏览器未允许保存，复习进度仅在本次打开期间有效。"); }
+    }
+    function later(fn, ms = 1800) {
+      const revision = state.revision;
+      state.timers.push(setTimeout(() => { if (revision === state.revision) fn(); }, ms));
+    }
+    function clearTimers() {
+      state.timers.forEach(clearTimeout); state.timers = []; state.revision += 1;
+    }
+    function route() {
+      const params = new URLSearchParams(location.hash.slice(1));
+      const pages = ["report","prep","coach","setup","result"];
+      return {page:pages.includes(params.get("page")) ? params.get("page") : "report", module:byId(params.get("module"))?.id || null, area:params.get("area")};
+    }
+    function go(page, module = null, area = null) {
+      const params = new URLSearchParams({page, session:SESSION_ID});
+      if (module) params.set("module", module);
+      if (area) params.set("area", area);
+      state.flipped = false;
+      if (location.hash === `#${params}`) render(true); else location.hash = params.toString();
+    }
+    const button = (label, action, cls = "", attrs = "") => `<button type="button" class="btn ${cls}" data-action="${action}" ${attrs}>${label}</button>`;
+    function toast(text) {
+      $("#toast").textContent = text; $("#toast").hidden = false;
+      later(() => { $("#toast").hidden = true; }, 2800);
+    }
+    function header() {
+      return `<div class="brand-row"><span class="eyebrow">DEEPINTERVIEW</span><span class="tag">V2 交互样张 · 非真实报告</span></div>`;
+    }
+    function pageIntro(title, text) { return `${header()}<h1>${title}</h1><p class="intro">${text}</p>`; }
+    function footerActions(id) {
+      return `<div class="actions">${button("让教练从此项开始 →","coach","green",`data-id="${id}"`)}${button("再面试，重点练此项","setup","",`data-id="${id}"`)}</div>`;
+    }
+    function renderReport() {
+      return `${pageIntro("你的面试报告", "高级后端工程师 · 示例科技。下面仅展示与本次学习闭环有关的报告区块。")}
+        <div class="two"><div class="panel"><p class="muted small">综合评分 · 样张数据</p><p class="score">3.4 <small>/ 5</small></p><p class="muted">具备实践经验，量化论证和关键决策的依据仍可加强。</p></div>
+        <div class="panel"><h2>成长空间</h2><ul class="bullets">${modules.map((m) => `<li>${m.reason}<br><span class="tag accent">${m.competency}</span></li>`).join("")}</ul></div></div>
+        <section class="panel section"><h2>下一步行动</h2><ol class="bullets">${modules.map((m) => `<li>${m.action}</li>`).join("")}</ol></section>
+        <div class="placeholder section">其余报告区块保持原有布局：能力图表、语言表现、参考答案与逐字稿。本稿不重复绘制。</div>
+        <section class="notice section"><h2>把这份建议接着练下去</h2><p class="muted">学习任务会保留这些建议和具体行动，已有原题直接复盘，缺少材料的目标再补题。</p><div class="actions">${button("根据这份报告开始学习 →","prep","primary")}</div></section>`;
+    }
+    function renderFeedback(m) {
+      const f = state.feedback[m.id];
+      if (state.lastCoach && !state.lastCoach.steps[m.id]) return `<div class="feedback-line"><span class="tag">本次尚未练习</span><p>${state.lastCoach.material[m.id] !== "ready" ? "结束时材料未就绪，没有对本项作出判断。" : "本次没有提交该项回答，不评价掌握程度。"}</p></div>`;
+      if (!f) return `<div class="feedback-line">教练反馈：尚未进行教练练习</div>`;
+      if (f.status === "pending") return `<div class="feedback-line" role="status"><span class="tag pending">反馈整理中</span><p>本轮已结束，正在等待本次结果。原面试成绩不变。</p></div>`;
+      if (f.status === "failed") return `<div class="feedback-line" role="status"><span class="tag failed">本次反馈未保存</span><p>暂不展示旧反馈作为本次结果。${button("重新查询反馈","feedback-retry","link",`data-id="${m.id}"`)}</p></div>`;
+      return `<div class="feedback-line" role="status"><span class="tag accent">教练判断：仍需练习</span><p>${f.partial ? "只完成初步回答，追问尚未展开完。" : ""}${m.feedback}</p><p>仅为本次引导练习反馈，不改变原面试的 ${m.score} / 5 分。</p></div>`;
+    }
+    function renderTask(m, index, active) {
+      const status = state.material[m.id];
+      const ready = status === "ready";
+      const labels = {ready:`${m.cards.length} 张卡片已就绪`, pending:"正在准备练习题", failed:"练习题准备失败"};
+      const rated = m.cards.filter((c) => state.rated[c.id]).length;
+      return `<article class="panel task ${active === m.id ? "active" : ""}"><span class="number">${index + 1}</span>
+        <div class="row"><h3>${m.title}</h3><span class="tag">原面试 ${m.score} / 5</span></div>
+        <p class="reason"><b>为什么练：</b>${m.reason}</p><p class="reason"><b>怎么练：</b>${m.action}</p>
+        <div class="material"><span class="tag ${status}">${labels[status]}</span>${ready ? `<span class="muted">本轮已复习 ${rated} / ${m.cards.length}</span>` : ""}${status === "failed" ? button("重试","retry","link",`data-id="${m.id}"`) : ""}</div>
+        ${!ready ? `<p class="small muted">${status === "failed" ? "其他任务仍可使用；本项材料不会替换成示例题。" : "准备好后即可学习；也可以直接进入再面试设置。"}</p>` : ""}
+        <div class="actions">${button(ready ? "开始学习 →" : "材料未就绪","learn","primary",`data-id="${m.id}" ${ready ? "" : "disabled"}`)}
+        ${button("让教练从此项开始","coach","secondary",`data-id="${m.id}" ${ready ? "" : "disabled"}`)}${button("再面试，重点练此项","setup","secondary",`data-id="${m.id}"`)}</div>${renderFeedback(m)}</article>`;
+    }
+    function studyCards(active) {
+      const targets = byId(active) ? [byId(active)] : modules;
+      return targets.filter((m) => state.material[m.id] === "ready").flatMap((m) => m.cards.map((c) => ({...c,module:m.id})));
+    }
+    function renderCards(active) {
+      const m = byId(active);
+      const cards = studyCards(active);
+      if (state.cardScope !== active) { state.cardId = null; state.cardScope = active; state.browseCompleted = false; state.flipped = false; }
+      const allDone = cards.length > 0 && cards.every((c) => state.rated[c.id]);
+      const current = cards.find((c) => c.id === state.cardId) || cards.find((c) => !state.rated[c.id]) || cards[0];
+      state.cardId = current?.id || null;
+      const heading = m ? `当前练习：${m.competency}` : "本场面试的全部学习卡片";
+      let content;
+      if (m && state.material[m.id] !== "ready") {
+        content = `<div class="panel empty"><h3>${state.material[m.id] === "failed" ? "练习题准备失败" : "正在准备练习题"}</h3><p class="muted">学习目标已保留，不会切换到示例题。</p>${state.material[m.id] === "failed" ? `<div class="actions">${button("重试本模块","retry","primary",`data-id="${m.id}"`)}</div>` : ""}</div>`;
+      } else if (!cards.length) {
+        content = `<div class="panel empty"><h3>练习材料尚未就绪</h3><p class="muted">就绪的卡片会显示在这里，这不代表已经复习完毕。</p></div>`;
+      } else if (allDone && !state.browseCompleted) {
+        const pending = !m && modules.some((target) => state.material[target.id] !== "ready");
+        content = `<div class="panel flashcard"><span class="check">✓</span><h2>${pending ? "当前可用卡片已复习" : "本轮卡片复习完成"}</h2><p class="muted">${pending ? "另有模块材料未就绪，请查看上方准备状态。" : "已经看过答案不等于掌握，接下来可以开口推演或在完整面试中验证。"}</p>${m ? footerActions(m.id) : `<div class="actions">${button("让教练带我练全部目标","coach","green")}${button("选择再面试的重点","choose-setup")}</div>`}<div class="actions">${button("回看卡片（不重置进度）","browse-cards","link")}</div><p class="small muted" style="margin-top:14px">自评仅用于复习，不改变面试分数或教练掌握度。</p></div>`;
+      } else {
+        const cm = byId(current.module);
+        const done = cards.filter((c) => state.rated[c.id]).length;
+        const position = cards.findIndex((c) => c.id === current.id);
+        content = `<div class="panel flashcard"><div class="row" style="width:100%"><span class="small muted">卡片 ${position + 1} / ${cards.length} · ${cm.competency}</span><span class="tag ${current.source === "面试复盘题" ? "accent" : "ready"}">${current.source}</span></div>
+          <p class="small muted">本轮已自评 ${done} / ${cards.length}${state.rated[current.id] ? ` · 此卡已选“${state.rated[current.id]}”` : " · 此卡尚未自评"}</p>
+          ${state.flipped ? `<p class="answer">${current.a}</p>` : `<p class="question">${current.q}</p>`}
+          ${button(state.flipped ? "返回问题" : "翻面查看参考答案","flip")}
+          <div class="row card-nav">${button("← 上一张","card-prev","",position === 0 ? "disabled" : "")}${button("下一张 →","card-next","",position === cards.length - 1 ? "disabled" : "")}</div>
+          <p class="small muted">自由浏览不计入复习完成；自评后自动转到下一张未自评的卡片。</p>
+          <div class="ratings">${["忘了","困难","记住","容易"].map((rating) => button(rating,"rate","",`data-id="${current.id}" data-rating="${rating}" ${state.flipped ? "" : "disabled"}`)).join("")}</div>
+          <p class="small muted" style="margin-top:12px">${state.flipped ? "请选择记忆情况。样张只演示本轮流转，真实间隔沿用原有复习算法。" : "可以直接切换卡片；需要自评时，再翻面看答案。"}</p>${allDone ? button("返回本轮完成页","card-summary","link") : ""}</div>`;
+      }
+      return `<section id="cards" class="section" tabindex="-1"><div class="row section-head"><div><p class="eyebrow">REVIEW</p><h2>记忆卡片</h2><p class="muted small">${heading}</p></div>${m ? button("返回全部卡片","all-cards","link") : ""}</div><div class="card-shell">${content}</div></section>`;
+    }
+    function renderPrep(r) {
+      const intro = pageIntro("按这份报告，继续练习", "先学习，再开口推演，最后用一场完整面试验证。你也可以直接找教练，或直接再面试。");
+      const source = `<div class="notice row"><div><p>关联面试：高级后端工程师 · 示例科技</p><p class="small muted">面试编号 ${SESSION_ID} · 样张模拟关联，不是真实历史数据</p></div>${button("查看原报告 ↗","report","link")}</div>`;
+      if (["no-session","unavailable","empty","normalize-failed"].includes(state.scenario)) {
+        const copy = {
+          "no-session":["先选择一份面试报告","这里还没有关联面试。完成面试后，从报告进入即可生成学习任务。"],
+          "unavailable":["暂时无法读取这场面试","可能是服务暂不可用或会话已失效，不会展示示例来代替本场数据。"],
+          "empty":["本次未发现需要安排的成长目标","没有待安排的学习任务，不生成空白或模拟卡片。你仍可以重新进行普通完整面试。"],
+          "normalize-failed":["学习目标暂未整理完成","原报告和分数仍然保留，只重试建议关联，不重新评分。"]
+        }[state.scenario];
+        return `${intro}${state.scenario === "no-session" ? "" : source}<section class="panel empty section"><h2>${copy[0]}</h2><p class="muted">${copy[1]}</p><div class="actions">${button(state.scenario === "no-session" ? "选择面试报告" : "查看原报告","report")}${button(state.scenario === "empty" ? "开始普通面试" : state.scenario === "no-session" ? "查看示例" : "重试","recover","primary")}</div></section>`;
+      }
+      return `${intro}${source}${renderCoachSummary()}<div class="split section"><section><div class="section-head"><h2>学习计划</h2><p class="muted small">3 个成长目标 · 按原面试表现安排，不限于低分项</p></div><div class="stack">${modules.map((m,i) => renderTask(m,i,r.module)).join("")}</div></section>
+        <aside class="stack"><section class="panel"><p class="eyebrow">LEARNING GUIDE</p><h2 style="margin-top:8px">知道怎么答，再验证能否答出</h2><ol class="bullets"><li>卡片：复盘问题与参考答案。</li><li>教练：自动带上全部目标，逐项追问，也可以随时换项。</li><li>完整面试：提高该项占比，不提供教学提示。</li></ol><hr class="divider"><p class="small muted">三种状态分开记录：原面试分数、卡片自评、教练反馈。不会因翻完卡片就自动判定掌握。</p></section>
+        <section class="panel"><h2>问你的教练</h2><p class="muted small">保留现有知识问答区，本轮不重做。</p><div class="chat-bubble">可查询知识点；需要开口推演时，直接开始苏格拉底练习。任务里的“让教练从此项开始”只调整起点，其他目标仍会纳入。</div><div class="placeholder">原有输入框与知识检索功能保留。此局部样张不模拟检索回答。</div></section></aside></div>
+        ${renderCards(r.module)}<section class="coach-banner section row"><div><h2>开口推演，而不是被评分</h2><p>自动包含本报告全部 3 个目标，无需选择；按需要逐项练习，随时可以结束。</p></div>${button("开始苏格拉底练习 →","coach")}</section>`;
+    }
+    function nextCoachGoal(c) {
+      const start = c.order.indexOf(c.active);
+      return [...c.order.slice(start + 1), ...c.order.slice(0, start + 1)].find((id) => id !== c.active && state.material[id] === "ready" && (c.steps[id] || 0) < 2) || null;
+    }
+    function coachLine(c, id, text, user = false) { c.log.push({id,text,user}); }
+    function switchCoachGoal(c, id) {
+      c.recording = false; c.active = id;
+      if (id) {
+        const m = byId(id), step = c.steps[id] || 0;
+        coachLine(c,id,`${step ? "继续" : "现在练习"}${m.competency}。${step === 0 ? m.opening : step === 1 ? m.followup : m.deepenPrompt}`);
+      }
+    }
+    function newCoach(entry) {
+      const order = [...(entry ? [entry] : []), ...modules.map((m) => m.id).filter((id) => id !== entry)];
+      const c = {run:++state.coachRun, entry, order, active:null, steps:{}, deepen:{}, recording:false, ended:false, log:[]};
+      coachLine(c,null,`本次自动包含${modules.map((m) => m.competency).join("、")}。我们逐项推演，你可以随时换项或结束，不要求一次练完。`);
+      switchCoachGoal(c,order.find((id) => state.material[id] === "ready") || null);
+      return c;
+    }
+    function renderCoachSummary() {
+      const c = state.lastCoach;
+      if (!c) return "";
+      const practiced = c.order.filter((id) => c.steps[id] > 0).length;
+      return `<section id="coach-feedback" class="panel section coach-summary" tabindex="-1"><h2>本次教练练习反馈</h2><p class="muted">纳入 ${c.order.length} 个目标，实际回答 ${practiced} 项；没有回答的目标不评价掌握程度。</p><div class="goal-list">${c.order.map((id) => `<div class="goal-item"><h3>${byId(id).competency}</h3>${renderFeedback(byId(id))}</div>`).join("")}</div><div class="actions">${button("再练一轮（包含全部目标）","coach","green")}</div></section>`;
+    }
+    function renderCoach(r) {
+      if (["no-session","unavailable","empty","normalize-failed"].includes(state.scenario)) return `${pageIntro("暂时无法开始教练练习", "需要先关联面试并准备真实学习目标，不会用示例目标代替缺失数据。")}${button("返回学习计划","prep")}`;
+      if (!state.coach || state.coach.entry !== r.module || state.coach.ended) state.coach = newCoach(r.module);
+      const c = state.coach;
+      if (!c.active) { const next = nextCoachGoal(c); if (next) switchCoachGoal(c,next); }
+      const m = byId(c.active), step = c.steps[c.active] || 0;
+      const waiting = c.order.filter((id) => state.material[id] !== "ready").length;
+      const practiced = c.order.filter((id) => c.steps[id] > 0).length;
+      return `${pageIntro("苏格拉底练习 · 全部成长目标", "无需逐项选择。教练自动安排顺序；从任务卡进入时先练该项，其他目标仍然包含在内。")}
+        <section class="notice success"><div class="row"><h2>当前：${m ? m.competency : "暂无待继续的可用目标"}</h2><span class="tag">已回答 ${practiced} / ${c.order.length} 项 · 不等于掌握</span></div><p class="small muted">${m ? m.reason : waiting ? "部分材料尚未就绪，可以返回备考页处理，或结束本轮；不会将等待中的目标标记为已练。" : "可用目标已完成基础推演，你可以回到某一项深入，或结束并查看反馈。"}</p>
+        <div class="goal-list">${c.order.map((id) => {
+          const target = byId(id), ready = state.material[id] === "ready", count = c.steps[id] || 0;
+          const label = !ready ? (state.material[id] === "failed" ? "材料准备失败" : "材料准备中") : id === c.active ? "正在练习" : count >= 3 ? "基础与深入已演示" : count >= 2 ? "已推演 · 可深入" : count ? "已回答 · 待继续" : "尚未练习";
+          return `<div class="goal-item ${id === c.active ? "current" : ""}"><h3>${target.competency}</h3><p>${label}</p>${button(id === c.active ? "当前目标" : "切到此项","switch-goal","",`data-id="${id}" ${!ready || id === c.active ? "disabled" : ""}`)}${state.material[id] === "failed" ? button("重试材料","retry","link",`data-id="${id}"`) : ""}</div>`;
+        }).join("")}</div><p class="small muted" style="margin-top:12px">所有目标都在本场范围内；切换或跳过不会算作完成。${waiting ? `${waiting} 项材料未就绪，先练其他项。` : ""}</p></section>
+        <div class="coach-grid section"><div class="stage"><span class="tag">苏格拉底教练 · 语音布局示意</span><svg class="avatar" viewBox="0 0 112 132" aria-hidden="true"><circle cx="56" cy="40" r="26" fill="#8eaa99"/><path d="M10 128c0-40 20-58 46-58s46 18 46 58" fill="#6f8e7b"/></svg><h2>${c.recording ? "模拟录音中…" : m ? "轮到你思考" : "可以结束或回看某一项"}</h2><p>数字人占位 · 不加载音视频，不开启设备</p></div>
+        <section class="panel transcript"><h2>本场对话 · 保留各目标记录</h2>${c.log.map((line) => `<div class="utterance ${line.user ? "user" : ""}"><span class="small muted">${line.user ? "你的示例回答" : "教练"}${line.id ? ` · ${byId(line.id).competency}` : ""}</span><p>${escape(line.text)}</p></div>`).join("")}<p class="small muted" style="margin-top:16px">样张每项两次预设回答后演示自动转场；这不是固定教学轮数或掌握判定。</p></section></div>
+        <section class="panel section"><p class="small muted">${c.recording ? "点击“我说完了”提交示例回答。切换目标会取消本次未提交录音，不产生评价。" : m && step >= 3 ? "此项的基础与深入预设回答已演示，可换项或结束。" : "可以继续回答，也可以说“换下一个”或“这一项再深入一点”；样张用下面的按钮演示。"}</p>
+        <div class="actions">${button("开始模拟录音","record","green",`${!m || c.recording || step >= 3 ? "disabled" : ""}`)}${button("我说完了","speak","",`${!c.recording ? "disabled" : ""}`)}${button("换下一个目标","next-goal","",`${!nextCoachGoal(c) ? "disabled" : ""}`)}${button(m && c.deepen[m.id] ? "已选择继续深入（可取消）" : "这一项再深入一点","deepen-goal","",`${!m || step >= 2 ? "disabled" : ""}`)}${button("结束本轮，查看分目标反馈","end-coach")}</div></section>`;
+    }
+    function renderSetup(r) {
+      const m = byId(r.module);
+      const focused = m && state.focus;
+      const sourceMissing = state.scenario === "source-missing";
+      return `${pageIntro("设置下一场完整面试", "先确认重点与资料，再创建新面试。上一场报告和学习材料不会被覆盖。")}
+        <section class="notice"><h2>${focused ? `本次面试重点：${m.competency}` : "本次为普通完整面试"}</h2><p class="muted">${focused ? "提高这一项的考查比例，同时保留其他岗位能力；不是短场测试。" : "不指定重点能力，仍按正常岗位要求组织问题。"}</p>${m ? `<div class="actions">${button(focused ? "取消重点，改为普通面试" : `恢复重点：${m.competency}`,"toggle-focus","link")}${button("返回原学习任务","return-module","link",`data-id="${m.id}"`)}</div>` : ""}</section>
+        ${sourceMissing ? `<div class="notice error section" role="status"><h3>上次资料暂不可读取</h3><p>重点能力已保留，请补充简历与岗位原文后再开始。不会自动填入示例资料。</p></div>` : ""}
+        <form id="setup-form" class="stack section"><section class="panel field"><label for="cv">你的简历</label><div class="tag ${sourceMissing ? "failed" : "ready"}">${sourceMissing ? "需要重新提供资料" : "模拟沿用上一场资料 · 可修改"}</div><p class="small muted" style="margin:10px 0">正式页面保留 PDF / DOCX 上传和文本粘贴。本样张仅编辑虚构文本，不读取本机简历。</p><textarea id="cv" name="cv" rows="4" required>${escape(state.form.cv)}</textarea></section>
+        <section class="panel field"><label for="jd">岗位描述</label><textarea id="jd" name="jd" rows="4" required>${escape(state.form.jd)}</textarea></section>
+        <section class="panel field"><label for="company">目标公司（选填）</label><input id="company" name="company" value="${escape(state.form.company)}"></section>
+        <section class="panel"><h2>面试语言</h2><div class="language-options">${button("中文","language","",`data-language="zh" aria-pressed="${state.language === "zh"}"`)}${button("English","language","",`data-language="en" aria-pressed="${state.language === "en"}"`)}</div><label><input type="checkbox" name="mixed" ${state.mixed ? "checked" : ""}> 允许中英文混答</label></section>
+        <section class="panel"><h2>面试官人设与设备检查</h2><p class="muted small">保持现有选择和检查流程，不在本样张启用麦克风。</p><div class="placeholder" style="margin-top:12px">原有人设卡片 → 麦克风检查，顺序不变。</div></section>
+        <div><button class="btn primary" type="submit">开始完整面试 →</button><p class="small muted" style="margin-top:9px">样张只打开准备确认，不创建真实会话，不调用模型。${state.language === "en" ? "正式面试、题目与报告将使用英文；本样张说明保持中文。" : ""}</p></div></form>`;
+    }
+    function renderResult(r) {
+      const m = byId(r.module) || modules[0];
+      const unassessed = state.scenario === "unassessed";
+      const ordinary = state.newInterview && !state.newInterview.focus;
+      return `${pageIntro("新一场面试的反馈", "这是独立的新报告，原报告与原学习记录保持不变。完整报告其他区块沿用现有页面。")}
+        <section class="notice"><h2>${ordinary ? "普通完整面试 · 新报告" : `本次重点：${m.competency}`}</h2><p class="small muted">新面试：mock-interview-02 · 来源 ${SESSION_ID} · 仅演示页面关系</p><div class="actions">${button("查看来源报告","report","link")}${button("返回原学习任务","return-module","link",`data-id="${m.id}"`)}</div></section>
+        ${ordinary ? `<div class="panel section"><h2>未指定本次重点</h2><p class="muted">取消重点后按普通面试展示，不宣称已完成某项专项验证。</p></div>` : `<section class="section"><div class="section-head"><h2>${m.competency} · 两次表现</h2><p class="muted small">题目不同，仅作进步参考；分数均为样张数据。</p></div><div class="two"><div class="panel"><p class="muted small">上次面试</p><p class="score">${m.score} <small>/ 5</small></p><p class="muted">${m.reason}</p></div><div class="panel"><p class="muted small">本次面试</p>${unassessed ? `<h2 style="margin:24px 0">本次未考查</h2><p class="muted">本场未形成该能力的有效作答，不记零分，也不计算进步幅度。</p>` : `<p class="score">${(Number(m.score) + .5).toFixed(1)} <small>/ 5</small></p><p class="muted">能够给出更具体的依据，并说明验证方法；仍需在不同条件下检验取舍。</p>`}</div></div></section>`}
+        <div class="panel section"><h2>接下来可以继续练</h2><p class="muted">新报告不自动把旧学习任务标记为掌握；回到原任务查看材料和教练反馈。</p><div class="actions">${button("返回原学习任务","return-module","primary",`data-id="${m.id}"`)}</div></div>`;
+    }
+    const scenarioOptions = {
+      report:[["ready","正常报告"]],
+      prep:[["ready","材料全部就绪"],["partial","部分准备中 / 失败"],["empty","没有成长目标"],["normalize-failed","旧报告整理失败"],["unavailable","会话读取失败"],["no-session","未关联面试"],["feedback-pending","教练反馈整理中"],["feedback-failed","教练反馈保存失败"],["completed","卡片复习完成"]],
+      coach:[["ready","全部目标可练"],["partial","部分材料未就绪"],["preparing","全部材料准备中"],["feedback-failed","结束后反馈保存失败"]],
+      setup:[["ready","沿用原资料"],["source-missing","原资料不可读取"]],
+      result:[["ready","两场均有评估"],["unassessed","本场未考查重点能力"]]
+    };
+    function render(moveFocus = false) {
+      const focused = document.activeElement;
+      const focusKey = focused?.dataset?.action ? {action:focused.dataset.action,id:focused.dataset.id} : null;
+      const r = route();
+      $("#app").className = r.page === "setup" ? "setup" : ["report","result"].includes(r.page) ? "narrow" : "";
+      const views = {report:renderReport, prep:renderPrep, coach:renderCoach, setup:renderSetup, result:renderResult};
+      $("#app").innerHTML = views[r.page](r);
+      document.querySelectorAll("[data-page]").forEach((b) => { if (b.dataset.page === r.page) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current"); });
+      const options = scenarioOptions[r.page];
+      let selected = state.scenario;
+      const allReady = modules.every((m) => state.material[m.id] === "ready");
+      const initialPartial = state.material.capacity === "ready" && state.material.recovery === "pending" && state.material.leadership === "failed";
+      if (["prep","coach"].includes(r.page) && ((selected === "ready" && !allReady) || (selected === "partial" && !initialPartial))) selected = "current";
+      if (!options.some(([value]) => value === selected)) selected = "current";
+      $("#scenario").innerHTML = `${selected === "current" ? '<option value="current" selected disabled>当前状态（保留操作结果）</option>' : ""}${options.map(([value,label]) => `<option value="${value}" ${value === selected ? "selected" : ""}>${label}</option>`).join("")}`;
+      if (moveFocus) {
+        const target = r.area === "cards" ? $("#cards") : r.area === "feedback" ? $("#coach-feedback") : $("#app");
+        (target || $("#app")).focus({preventScroll:true});
+        (target || $("#app")).scrollIntoView({block:"start"});
+      } else if (focusKey) {
+        const match = [...document.querySelectorAll("[data-action]")].find((el) => el.dataset.action === focusKey.action && el.dataset.id === focusKey.id && !el.disabled);
+        (match || $("#cards") || $("#app")).focus({preventScroll:true});
+      }
+      const transcript = $(".transcript");
+      if (transcript) transcript.scrollTop = transcript.scrollHeight;
+    }
+    function retryMaterial(id) {
+      state.material[id] = "pending"; render();
+      later(() => { state.material[id] = "ready"; render(); toast("该模块材料已就绪；其他任务和已复习进度保持不变。"); });
+    }
+    function finishFeedback(id) {
+      const original = state.feedback[id];
+      if (!original) return;
+      state.feedback[id] = {...original,status:"pending"}; render();
+      later(() => { if (state.feedback[id]?.run === original.run) state.feedback[id] = {...original,status:"ready"}; render(); });
+    }
+    function applyScenario(value) {
+      clearTimers(); state.scenario = value; state.flipped = false;
+      const id = route().module || "capacity";
+      if (value === "partial") state.material = {capacity:"ready",recovery:"pending",leadership:"failed"};
+      if (value === "preparing") state.material = Object.fromEntries(modules.map((m) => [m.id,"pending"]));
+      if (route().page === "coach" && ["ready","partial","preparing"].includes(value)) state.coach = null;
+      state.cardId = null; state.browseCompleted = false;
+      if (value === "source-missing") state.form = {cv:"",jd:"",company:""};
+      if (value === "ready" && route().page === "setup") state.form = {...initialForm};
+      if (value === "ready") { state.material = Object.fromEntries(modules.map((m) => [m.id,"ready"])); for (const [key,f] of Object.entries(state.feedback)) if (f.status === "pending") state.feedback[key] = {...f,status:"ready"}; }
+      if (route().page !== "coach" && ["feedback-pending","feedback-failed"].includes(value)) {
+        state.lastCoach = null;
+        state.feedback[id] = {status:value === "feedback-pending" ? "pending" : "failed",run:++state.coachRun};
+      }
+      if (value === "completed") { const targets = route().module ? [byId(route().module)] : modules; targets.forEach((m) => { state.material[m.id] = "ready"; m.cards.forEach((c) => { state.rated[c.id] = "记住"; }); }); saveRatings(); }
+      render();
+    }
+    $("#scenario").addEventListener("change", (event) => applyScenario(event.target.value));
+    $("#app").addEventListener("input", (event) => {
+      const input = event.target;
+      if (Object.hasOwn(state.form,input.name)) state.form[input.name] = input.value;
+      if (input.name === "mixed") state.mixed = input.checked;
+    });
+    $("#app").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const r = route(); state.newInterview = {focus:state.focus ? r.module : null};
+      $("#app").innerHTML = `${pageIntro("新面试准备确认", "此处是本地演示的流程节点，尚未创建真实面试。")}
+        <section class="panel"><h2>${state.newInterview.focus ? `完整面试 · 重点 ${byId(r.module).competency}` : "普通完整面试"}</h2><ul class="bullets"><li>资料：${escape(state.form.company || "未填写公司")} · ${state.language === "zh" ? "中文" : "English"}${state.mixed ? "，允许混答" : ""}</li><li>正式流程：读取资料 → 调研公司 → 规划问题 → 进入完整面试。</li><li>${state.newInterview.focus ? "主体题至少 40% 聚焦本项，至少 2 道重点题；保留至少 2 道其他能力题。" : "按正常岗位要求规划问题，不指定重点。"}</li><li>旧题用于避免重复，不把练习答案当成你的新作答。</li></ul><div class="actions">${button("返回修改设置","setup","",`data-id="${r.module || ""}"`)}${button("跳过面试，查看新报告样张 →","result","primary",`data-id="${r.module || "capacity"}"`)}</div></section>`;
+      $("#app").focus({preventScroll:true}); window.scrollTo(0,0);
+    });
+    document.addEventListener("click", (event) => {
+      const nav = event.target.closest("[data-page]");
+      if (nav) { if (["report","setup","result"].includes(nav.dataset.page)) state.scenario = "ready"; if (nav.dataset.page === "coach") state.coach = null; go(nav.dataset.page, ["setup","result"].includes(nav.dataset.page) ? route().module || "capacity" : null); return; }
+      const target = event.target.closest("[data-action]");
+      if (!target || target.disabled) return;
+      const action = target.dataset.action, id = byId(target.dataset.id)?.id || null;
+      if (["report","prep","result"].includes(action)) { if (action !== "prep") state.scenario = "ready"; go(action,id); }
+      if (action === "learn") go("prep",id,"cards");
+      if (action === "all-cards") go("prep",null,"cards");
+      if (action === "return-module") { state.scenario = "ready"; go("prep",id); }
+      if (action === "coach") { state.coach = null; if (!["partial","feedback-failed"].includes(state.scenario)) state.scenario = "ready"; go("coach",id); }
+      if (action === "setup") { state.scenario = "ready"; if (route().page !== "setup") state.focus = true; go("setup",id); }
+      if (action === "choose-setup") { go("prep"); toast("请在对应任务上点击“再面试，重点练此项”。"); }
+      if (action === "retry") retryMaterial(id);
+      if (action === "feedback-retry") finishFeedback(id);
+      if (action === "flip") { state.flipped = !state.flipped; render(); }
+      if (["card-prev","card-next"].includes(action)) {
+        const cards = studyCards(route().module), index = cards.findIndex((c) => c.id === state.cardId);
+        const next = cards[index + (action === "card-next" ? 1 : -1)];
+        if (next) { state.cardId = next.id; state.flipped = false; render(); }
+      }
+      if (action === "browse-cards") { state.browseCompleted = true; state.cardId = studyCards(route().module)[0]?.id || null; state.flipped = false; render(); }
+      if (action === "card-summary") { state.browseCompleted = false; render(); }
+      if (action === "rate" && state.flipped) {
+        const cards = studyCards(route().module), index = cards.findIndex((c) => c.id === target.dataset.id);
+        if (index < 0) return;
+        state.rated[target.dataset.id] = target.dataset.rating; state.flipped = false;
+        const next = [...cards.slice(index + 1),...cards.slice(0,index + 1)].find((c) => !state.rated[c.id]);
+        state.cardId = next?.id || null; state.browseCompleted = false; saveRatings(); render();
+      }
+      if (action === "record") { state.coach.recording = true; render(); }
+      if (["switch-goal","next-goal"].includes(action)) {
+        const c = state.coach, next = action === "switch-goal" ? id : nextCoachGoal(c);
+        if (next && state.material[next] === "ready") { switchCoachGoal(c,next); render(); }
+      }
+      if (action === "deepen-goal") { const c = state.coach; c.deepen[c.active] = !c.deepen[c.active]; render(); }
+      if (action === "speak" && state.coach?.recording) {
+        const c = state.coach, m = byId(c.active), step = c.steps[m.id] || 0;
+        c.recording = false; c.steps[m.id] = step + 1;
+        coachLine(c,m.id,[m.reply,m.followupReply,m.deepenReply][step],true);
+        if (step === 0) coachLine(c,m.id,m.followup);
+        else if (step === 1 && c.deepen[m.id]) coachLine(c,m.id,m.deepenPrompt);
+        else if (step === 1) {
+          const next = nextCoachGoal(c);
+          coachLine(c,m.id,next ? "这一项先推演到这里，不代表已经掌握。我们继续下一个待练目标。" : "当前可用目标已完成基础推演，不代表已经掌握。你可以回到某一项深入，也可以结束本轮。");
+          switchCoachGoal(c,next);
+        } else coachLine(c,m.id,"这一项的深入推演也已演示，可以继续其他目标，或结束后查看分目标反馈。");
+        render();
+      }
+      if (action === "end-coach") {
+        const c = state.coach, failure = state.scenario === "feedback-failed";
+        c.ended = true; c.recording = false; c.material = {...state.material}; state.lastCoach = c;
+        const practiced = c.order.filter((key) => c.steps[key] > 0);
+        practiced.forEach((key) => { state.feedback[key] = {status:"pending",run:c.run,partial:c.steps[key] < 2}; });
+        state.scenario = "ready"; go("prep",c.entry,"feedback");
+        later(() => {
+          practiced.forEach((key) => { if (state.feedback[key]?.run === c.run) state.feedback[key] = {...state.feedback[key],status:failure ? "failed" : "ready"}; });
+          render();
+        });
+      }
+      if (action === "toggle-focus") { state.focus = !state.focus; render(); }
+      if (action === "language") { state.language = target.dataset.language; render(); }
+      if (action === "recover") {
+        if (state.scenario === "empty") { state.scenario = "ready"; state.focus = false; go("setup"); }
+        else { applyScenario("ready"); toast("已切换到就绪样张；真实产品在这里重新读取或整理数据。"); }
+      }
+    });
+    $("#reset").addEventListener("click", () => {
+      clearTimers(); state.rated = {}; state.feedback = {}; state.coach = null; state.lastCoach = null; state.focus = true; state.newInterview = null;
+      state.cardId = null; state.cardScope = null; state.browseCompleted = false;
+      state.language = "zh"; state.mixed = false; state.form = {...initialForm}; $("#toast").hidden = true; saveRatings(); applyScenario("ready"); go("report");
+    });
+    window.addEventListener("hashchange", () => { state.flipped = false; render(true); });
+    render();
+  </script>
+</body>
+</html>

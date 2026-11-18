@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>设计稿 ④ 数字人画廊 — 风格 A</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { theme: { extend: {
+  colors: { paper:'#FAFAF7', ink:'#1C1B1A', mist:'#6B6B66', line:'#E6E4DF',
+    brand:{50:'#EEF1FF',100:'#DDE3FF',500:'#4F5DD5',600:'#3D4AB8',700:'#313B93'},
+    success:'#1F7A5C', warn:'#B4690E' },
+  fontFamily:{ sans:['"PingFang SC"','"Hiragino Sans GB"','system-ui','sans-serif'] },
+  boxShadow:{ card:'0 1px 2px rgba(28,27,26,.05), 0 8px 24px rgba(28,27,26,.06)' }
+}}}</script>
+</head>
+<body class="bg-paper text-ink antialiased">
+
+<section class="max-w-[1080px] mx-auto px-6 py-12">
+  <header class="flex items-center justify-between mb-12">
+    <p class="text-xs font-mono uppercase tracking-widest text-brand-600">DeepInterview</p>
+  </header>
+
+  <p class="text-xs font-mono uppercase tracking-widest text-brand-600 mb-3">Avatar system</p>
+  <!-- 与生产差异注：生产 H1 写"Three personas"，但画廊实际渲染 4 个人设（personas.ts）——生产文案 bug，已记入换肤实施清单 -->
+  <h1 class="text-4xl font-bold tracking-tight mb-4 max-w-3xl leading-[1.2]">四个人设，四态开关，零按分钟成本。</h1>
+  <p class="text-[11px] text-warn mb-4">⚠ 对账注：生产标题写的是「Three personas」，与代码里 4 个人设自相矛盾——这是生产自带文案 bug，非本稿画错；换肤时一并修正。</p>
+  <p class="text-[15px] text-mist max-w-[60ch] leading-relaxed mb-10">每个面试官是一对预渲染视频循环——待机与说话——由实时 Agent 状态交叉淡入切换。没有实时数字人 SaaS，运行成本只是 CDN 流量。下方舞台在循环素材接入前渲染回退外观。</p>
+
+  <!-- 全局状态开关（真实：四态一并驱动所有卡片 + 下方一行 STATE_HINT） -->
+  <div class="inline-flex flex-wrap gap-1 rounded-xl border border-line bg-white p-1 text-sm mb-3">
+    <button class="px-5 py-2 rounded-lg font-mono text-xs uppercase tracking-widest text-mist hover:text-ink">idle</button>
+    <button class="px-5 py-2 rounded-lg font-mono text-xs uppercase tracking-widest text-mist hover:text-ink">listening</button>
+    <button class="px-5 py-2 rounded-lg font-mono text-xs uppercase tracking-widest text-mist hover:text-ink">thinking</button>
+    <button class="px-5 py-2 rounded-lg font-mono text-xs uppercase tracking-widest bg-ink text-white">speaking</button>
+  </div>
+  <p class="text-sm text-mist mb-10">Asking a question — crossfades to the speaking loop.</p>
+
+  <div class="grid md:grid-cols-3 gap-6">
+    <!-- 真实卡结构：舞台 + name + id（等宽小标）+ style；无 per-card 状态角标，状态由全局开关统一驱动 -->
+    <div class="bg-white border border-line rounded-2xl shadow-card overflow-hidden">
+      <div class="aspect-[3/4] grid place-items-center" style="background:radial-gradient(60% 50% at 50% 35%,#EEF1FF,#F5F4F0)">
+        <div class="w-24 h-24 rounded-full bg-white border border-line grid place-items-center text-5xl shadow-card">👩‍💼</div>
+      </div>
+      <div class="p-5">
+        <h3 class="font-serif text-lg mb-0.5">Dana</h3>
+        <p class="text-[11px] font-mono uppercase tracking-widest text-mist/70 mb-1.5">recruiter</p>
+        <p class="text-[13px] text-mist leading-relaxed">专业招聘官——标准节奏，收尾必问反问环节。</p>
+      </div>
+    </div>
+    <div class="bg-white border border-line rounded-2xl shadow-card overflow-hidden">
+      <div class="aspect-[3/4] grid place-items-center" style="background:radial-gradient(60% 50% at 50% 35%,#EEF1FF,#F5F4F0)">
+        <div class="w-24 h-24 rounded-full bg-white border border-line grid place-items-center text-5xl shadow-card">🧑‍🎤</div>
+      </div>
+      <div class="p-5">
+        <h3 class="font-serif text-lg mb-0.5">Mika</h3>
+        <p class="text-[11px] font-mono uppercase tracking-widest text-mist/70 mb-1.5">anime</p>
+        <p class="text-[13px] text-mist leading-relaxed">动漫导师——温和引导，每个答案都追一层 why。</p>
+      </div>
+    </div>
+    <div class="bg-white border border-line rounded-2xl shadow-card overflow-hidden">
+      <div class="aspect-[3/4] grid place-items-center" style="background:radial-gradient(60% 50% at 50% 35%,#EEF1FF,#F5F4F0)">
+        <div class="w-24 h-24 rounded-full bg-white border border-line grid place-items-center text-5xl shadow-card">🦸</div>
+      </div>
+      <div class="p-5">
+        <h3 class="font-serif text-lg mb-0.5">Vanguard</h3>
+        <p class="text-[11px] font-mono uppercase tracking-widest text-mist/70 mb-1.5">superhero</p>
+        <p class="text-[13px] text-mist leading-relaxed">英雄教练——高压快问，会打断，适合练抗压。</p>
+      </div>
+    </div>
+    <div class="bg-white border border-line rounded-2xl shadow-card overflow-hidden">
+      <div class="aspect-[3/4] grid place-items-center" style="background:radial-gradient(60% 50% at 50% 35%,#EEF1FF,#F5F4F0)">
+        <div class="w-24 h-24 rounded-full bg-white border border-line grid place-items-center text-5xl shadow-card">👨‍🏫</div>
+      </div>
+      <div class="p-5">
+        <h3 class="font-serif text-lg mb-0.5">Dr. Chen</h3>
+        <p class="text-[11px] font-mono uppercase tracking-widest text-mist/70 mb-1.5">professor</p>
+        <p class="text-[13px] text-mist leading-relaxed">教授——连环追问直到你想通第一性原理。</p>
+      </div>
+    </div>
+  </div>
+
+  <p class="text-[12px] text-mist mt-8">去留已拍板：本页<b>保留作内部工具</b>，不入对外导航、不做营销化改造；本稿只修正数据错误（人设数/名称/四态开关/角标）。真实卡面为 poster_url 海报图，此处 emoji 仅占位。</p>
+</section>
+
+<div class="fixed bottom-5 right-5 bg-ink text-white text-xs rounded-full px-4 py-2 opacity-80">设计稿 ④ · 待确认</div>
+</body>
+</html>

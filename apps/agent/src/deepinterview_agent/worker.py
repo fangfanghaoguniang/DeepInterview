@@ -394,7 +394,7 @@ def build_llm(settings):
         return openai.LLM(
             model=model,
             base_url=settings.ollama_base_url,
-            api_key=settings.local_api_key,
+            api_key=getattr(settings, "ollama_api_key", "") or settings.local_api_key,
         )
     if provider == "openai" and settings.openai_api_key:
         from livekit.plugins import openai
@@ -735,12 +735,83 @@ async def _load_context_with_retry(session_id: str, settings, *, timeout_sec: fl
         await asyncio.sleep(2.0)
 
 
+# --- TEMP read-only probe: manual-commit / late-STT race ---------------------
+#
+# Splitting one answer across two bubbles with the interviewer's question in
+# the middle has two candidate causes we cannot tell apart from the existing
+# pipe.* events alone:
+#   (A) pure caption lateness — a late STT FINAL_TRANSCRIPT just renders as a
+#       second user bubble, no second reply is generated; vs
+#   (B) the committed-window race — after commit sets _user_turn_committed and
+#       while the end-of-turn task is still sleeping, a late FINAL_TRANSCRIPT
+#       re-arms _run_eou_detection(trigger="stt"), so the interviewer really
+#       answers twice.
+# The deciding state lives inside the SDK (AudioRecognition), so wrap those two
+# methods to log the flags + a perf_counter timestamp at each transcript arrival
+# and each end-of-turn (re)arm. LOGSIZES AND FLAGS ONLY — never the verbatim
+# text (same privacy policy as the turn events). Adds no behavior change; remove
+# this whole block plus its call in entrypoint once the cause is confirmed.
+
+
+def install_turn_race_probe() -> None:
+    import time as _time
+
+    from livekit.agents.voice import audio_recognition as _ar
+
+    if getattr(_ar.AudioRecognition, "_di_probe_installed", False):
+        return
+    _ar.AudioRecognition._di_probe_installed = True
+
+    def _eot_state(self) -> str:
+        task = self._end_of_turn_task
+        if task is None:
+            return "none"
+        return "done" if task.done() else "running"
+
+    orig_stt = _ar.AudioRecognition._on_stt_event
+    orig_eou = _ar.AudioRecognition._run_eou_detection
+
+    async def _on_stt_event(self, ev):
+        if ev.type == _ar.stt.SpeechEventType.FINAL_TRANSCRIPT:
+            text = ev.alternatives[0].text if ev.alternatives else ""
+            log.info(
+                "di-probe: STT-FINAL new_chars=%d acc_chars=%d committed=%s "
+                "speaking=%s eou=%s t=%.3f",
+                len(text or ""),
+                len(self._audio_transcript),
+                self._user_turn_committed,
+                self._speaking,
+                _eot_state(self),
+                _time.perf_counter(),
+            )
+        return await orig_stt(self, ev)
+
+    def _run_eou_detection(self, chat_ctx, *, trigger, skip_reply=False):
+        log.info(
+            "di-probe: EOU-FIRE trigger=%s acc_chars=%d committed=%s "
+            "speaking=%s eou=%s t=%.3f",
+            trigger,
+            len(self._audio_transcript),
+            self._user_turn_committed,
+            self._speaking,
+            _eot_state(self),
+            _time.perf_counter(),
+        )
+        return orig_eou(self, chat_ctx, trigger=trigger, skip_reply=skip_reply)
+
+    _ar.AudioRecognition._on_stt_event = _on_stt_event
+    _ar.AudioRecognition._run_eou_detection = _run_eou_detection
+    log.info("di-probe: turn-race probe installed (read-only)")
+
+
 # --- entrypoint --------------------------------------------------------------
 
 
 async def entrypoint(ctx: JobContext) -> None:
     settings = get_settings()
     init_observability(settings)
+    # TEMP: enable while diagnosing the split-bubble race; see the probe block.
+    install_turn_race_probe()
     deps = build_deps(settings)
 
     # Fail fast on a misconfigured live provider before the candidate connects,

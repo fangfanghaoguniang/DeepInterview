@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DeepInterview · 页面设计稿与交互样张</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>body{font-family:"PingFang SC","Hiragino Sans GB",system-ui,sans-serif}</style>
+</head>
+<body class="bg-neutral-100 text-neutral-900 min-h-screen grid place-items-center p-8">
+  <div class="max-w-4xl w-full">
+    <p class="text-xs tracking-[.4em] text-neutral-400 mb-2">DESIGN MOCKUPS · 设计稿非生产页面 · 确认后按稿调整</p>
+    <h1 class="text-3xl font-bold mb-2">页面设计稿与交互样张</h1>
+    <p class="text-neutral-500 text-sm mb-10">最新：成长闭环的可点击离线样张，沿用已确认的风格 A。先确认页面操作与状态，再实施生产改动；历史设计稿保留供对照。</p>
+    <div class="grid md:grid-cols-2 gap-5">
+      <a href="d3-growth-loop.html?v=2" class="md:col-span-2 block rounded-2xl bg-white border border-indigo-300 shadow-sm p-6 hover:border-indigo-500 hover:shadow-md transition">
+        <p class="text-xs tracking-widest text-indigo-600 mb-2">V2 最新 · 默认全部目标 · 卡片自由翻页</p>
+        <h2 class="font-semibold text-lg mb-1.5">成长闭环：从报告建议到下一场完整面试</h2>
+        <p class="text-sm text-neutral-500 leading-relaxed">原报告 → 可自由翻页的记忆卡片 → 默认全部目标的苏格拉底练习 → 再面试重点设置 → 新报告。教练可中途换项、深入和提前结束，分别反馈已练与未练目标；右上角可切换准备中、失败等状态。</p>
+        <p class="text-xs text-neutral-400 mt-3">样张独立运行，无外部依赖；全部为虚构数据，不调用模型或麦克风，不修改真实会话。</p>
+      </a>
+      <a href="style-a-final-landing.html" class="block rounded-2xl bg-white border border-neutral-200 shadow-sm p-6 hover:border-indigo-400 hover:shadow-md transition">
+        <div class="h-20 rounded-xl mb-4" style="background:linear-gradient(135deg,#FAFAF7 55%,#DDE3FF)"></div>
+        <h2 class="font-semibold text-lg mb-1.5">① 落地页（已确认并已落地）</h2>
+        <p class="text-sm text-neutral-500 leading-relaxed">/（首页）—— 工具型着陆页：Nav / Hero / HowItWorks / Product / Faq / CtaBand / 三列 Footer，促销元素已清除。</p>
+      </a>
+      <a href="d2-auth-session.html" class="block rounded-2xl bg-white border border-neutral-200 shadow-sm p-6 hover:border-indigo-400 hover:shadow-md transition">
+        <div class="h-20 rounded-xl mb-4 flex gap-2 p-3 bg-neutral-50"><span class="flex-1 rounded-lg bg-white border border-neutral-200"></span><span class="flex-1 rounded-lg bg-white border border-neutral-200"></span><span class="flex-1 rounded-lg bg-indigo-100/70 border border-indigo-200"></span></div>
+        <h2 class="font-semibold text-lg mb-1.5">② 认证 + 会话页</h2>
+        <p class="text-sm text-neutral-500 leading-relaxed">/login、/signup（440px 卡片）· /session/[id]（五步进度态 + 完成态「我们发现了什么」bento）</p>
+      </a>
+      <a href="d2-setup-interview.html" class="block rounded-2xl bg-white border border-neutral-200 shadow-sm p-6 hover:border-indigo-400 hover:shadow-md transition">
+        <div class="h-20 rounded-xl mb-4 flex gap-2 p-3 bg-neutral-50"><span class="w-1/3 rounded-lg bg-white border border-neutral-200"></span><span class="flex-1 rounded-lg bg-neutral-800"></span><span class="flex-1 rounded-lg bg-white border border-neutral-200"></span></div>
+        <h2 class="font-semibold text-lg mb-1.5">③ 配置 + 面试间 + 教练间</h2>
+        <p class="text-sm text-neutral-500 leading-relaxed">/setup（720px 向导，字段顺序照搬生产）· /interview/[id]（舞台+逐字稿+手动判停控制条）· /interview/coach（绿徽标变体）</p>
+      </a>
+      <a href="d2-prep-report.html" class="block rounded-2xl bg-white border border-neutral-200 shadow-sm p-6 hover:border-indigo-400 hover:shadow-md transition">
+        <div class="h-20 rounded-xl mb-4 flex gap-2 p-3 bg-neutral-50"><span class="flex-1 rounded-lg bg-indigo-100/70 border border-indigo-200"></span><span class="flex-1 rounded-lg bg-white border border-neutral-200"></span><span class="flex-1 rounded-lg bg-white border border-neutral-200"></span></div>
+        <h2 class="font-semibold text-lg mb-1.5">④ 备考 + 报告页</h2>
+        <p class="text-sm text-neutral-500 leading-relaxed">/prep（1100px 六区块：闭环横幅 / 学习模块+教练问答 / 闪卡+掌握度图谱 / 苏格拉底 CTA）· /report/[id]（分数 bento + 强弱项范文 + 逐字稿回放）</p>
+      </a>
+      <a href="d2-avatars.html" class="block rounded-2xl bg-white border border-neutral-200 shadow-sm p-6 hover:border-indigo-400 hover:shadow-md transition">
+        <div class="h-20 rounded-xl mb-4 flex gap-2 p-3 bg-neutral-50"><span class="flex-1 rounded-lg bg-white border border-neutral-200 aspect-[3/4]"></span><span class="flex-1 rounded-lg bg-white border border-neutral-200 aspect-[3/4]"></span><span class="flex-1 rounded-lg bg-white border border-neutral-200 aspect-[3/4]"></span></div>
+        <h2 class="font-semibold text-lg mb-1.5">⑤ 数字人画廊页（去留待定）</h2>
+        <p class="text-sm text-neutral-500 leading-relaxed">/avatars —— 内部工具页（三 persona 卡 + idle/speaking 开关）。若不对用户开放，建议不换肤、直接从导航隐藏——待你拍板。</p>
+      </a>
+      <div class="rounded-2xl bg-neutral-50 border border-dashed border-neutral-300 p-6">
+        <h2 class="font-semibold text-lg mb-1.5 text-neutral-600">历史样张（仅供回看）</h2>
+        <p class="text-sm text-neutral-500 leading-relaxed mb-3">三选一时期的完整三页对比：</p>
+        <p class="text-sm"><a class="text-indigo-600 underline underline-offset-2 mr-3" href="style-a-editorial.html">A 编辑咨询风</a><a class="text-indigo-600 underline underline-offset-2 mr-3" href="style-b-dark-glass.html">B 深色玻璃</a><a class="text-indigo-600 underline underline-offset-2" href="style-c-ink-type.html">C 纸墨排版</a></p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
